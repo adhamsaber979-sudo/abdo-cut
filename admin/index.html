@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>لوحة إدارة ABDO CUT - عبد الرحمن</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/admin/style.css">
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+<div class="admin-shell">
+  <!-- Sidebar -->
+  <aside class="panel" id="sidePanel">
+    <div class="header">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <img src="/logo.svg" alt="ABDO CUT" style="height:32px;width:auto;filter:brightness(1.2);" onerror="this.src='/logo.png'">
+        <div>
+          <h1 style="margin:0;font-size:1.15rem;letter-spacing:1px;font-weight:800;">ABDO CUT</h1>
+          <small style="color:#b7a4ff;font-size:11px;display:block;">عبد الرحمن</small>
+        </div>
+      </div>
+      <button class="toggle-btn" id="toggleBtn" aria-label="طي القائمة">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="search-box">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input id="searchMenu" placeholder="بحث في اللوحة...">
+    </div>
+
+    <nav class="menu">
+      <a class="menu-item active" href="#dashboard"><i class="fa-solid fa-house"></i><span>الرئيسية</span></a>
+      <a class="menu-item" href="#upload"><i class="fa-solid fa-cloud-arrow-up"></i><span>إضافة فيديوهات</span></a>
+      <a class="menu-item" href="#library"><i class="fa-solid fa-photo-film"></i><span>الفيديوهات المنشورة</span></a>
+      <a class="menu-item" href="#servers"><i class="fa-solid fa-server"></i><span>سيرفرات التخزين</span></a>
+      <div class="divider"></div>
+      <a class="menu-item" href="/" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i><span>عرض الموقع</span></a>
+      <a class="menu-item" href="#logout" id="logoutBtn"><i class="fa-solid fa-right-from-bracket"></i><span>تسجيل الخروج</span></a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="admin-main">
+    <header class="topbar">
+      <div>
+        <small>ABDO CUT / ADMIN DASHBOARD</small>
+        <h1>إدارة محتوى وسيرفرات الموقع</h1>
+      </div>
+      <span id="connectionState" class="state">جاري التحقق من الاتصال…</span>
+    </header>
+
+    <!-- Login Card (Shown if unauthenticated) -->
+    <section class="glass-card login-card" id="loginCard">
+      <h2>تسجيل دخول الإدارة</h2>
+      <p>الدخول مخصص للمدير فقط لإدارة ونشر الفيديوهات.</p>
+      <form id="loginForm">
+        <label>البريد الإلكتروني
+          <input type="email" id="email" required autocomplete="username" placeholder="admin@abdocut.com">
+        </label>
+        <label>كلمة المرور
+          <input type="password" id="password" required autocomplete="current-password" placeholder="••••••••">
+        </label>
+        <button class="primary-btn" type="submit">دخول إلى اللوحة</button>
+        <p class="status" id="loginStatus"></p>
+      </form>
+    </section>
+
+    <!-- Admin Protected Content -->
+    <div id="adminContent" hidden>
+
+      <!-- Server Limit Notification (Dynamic) -->
+      <div id="limitAlertBox" class="limit-alert" hidden>
+        <i class="fa-solid fa-triangle-exclamation" style="font-size:18px;"></i>
+        <div id="limitAlertText">تنبيه: وصل أحد السيرفرات للحد الأقصى التنظيمي (10 فيديوهات).</div>
+      </div>
+
+      <!-- Dashboard & Server Capacity Stats -->
+      <section class="stats-grid" id="dashboard">
+        <!-- Stat 1: Total Published Videos -->
+        <article class="glass-card stat">
+          <div>
+            <small>الفيديوهات المنشورة</small>
+            <strong id="totalCount">0</strong>
+          </div>
+          <div style="font-size:12px;color:#c9c5da;margin-top:8px;">
+            الأقسام النشطة: <span id="sectionCount" style="color:#b7a4ff;font-weight:700;">0</span>
+          </div>
+        </article>
+
+        <!-- Stat 2: Server 1 -->
+        <article class="glass-card stat server-stat" id="hyperserveCard">
+          <div class="server-header">
+            <span class="server-name">
+              <i class="fa-solid fa-server" style="color:#a78bfa;"></i> سيرفر 1
+            </span>
+            <span class="server-badge" id="hsBadge">متصل</span>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+              <small style="color:#c9c5da;">الفيديوهات المرفوعة</small>
+              <span style="font-size:11px;color:#c9c5da;">الحد: <span id="hsLimitNum">10</span></span>
+            </div>
+            <strong style="font-size:24px;margin-top:4px;">
+              <span id="hsCount">0</span> <span style="font-size:14px;color:#a5a0c0;font-weight:400;">/ 10</span>
+            </strong>
+            <div class="server-meter">
+              <div class="meter-bar">
+                <div class="meter-fill" id="hsMeter" style="width:0%;"></div>
+              </div>
+            </div>
+          </div>
+          <div class="server-details">
+            <div>التخزين: <span id="hsStorage" style="color:#fff;">متاح (حسب الباقة)</span></div>
+            <div>الباندويث: <span id="hsBandwidth" style="color:#fff;">سريع جداً</span></div>
+          </div>
+        </article>
+
+        <!-- Stat 3: Server 2 -->
+        <article class="glass-card stat server-stat" id="cloudinaryCard">
+          <div class="server-header">
+            <span class="server-name">
+              <i class="fa-solid fa-server" style="color:#38bdf8;"></i> سيرفر 2
+            </span>
+            <span class="server-badge" id="cldBadge">متصل</span>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+              <small style="color:#c9c5da;">الفيديوهات المرفوعة</small>
+              <span style="font-size:11px;color:#c9c5da;">الحد: <span id="cldLimitNum">10</span></span>
+            </div>
+            <strong style="font-size:24px;margin-top:4px;">
+              <span id="cldCount">0</span> <span style="font-size:14px;color:#a5a0c0;font-weight:400;">/ 10</span>
+            </strong>
+            <div class="server-meter">
+              <div class="meter-bar">
+                <div class="meter-fill" id="cldMeter" style="width:0%;"></div>
+              </div>
+            </div>
+          </div>
+          <div class="server-details">
+            <div>التخزين: <span id="cldStorage" style="color:#fff;">متاح (حسب الاستهلاك)</span></div>
+            <div>الباندويث: <span id="cldBandwidth" style="color:#fff;">عالمي CDN</span></div>
+          </div>
+        </article>
+
+        <!-- Stat 4: System & Security Status -->
+        <article class="glass-card stat">
+          <div>
+            <small>حماية وسيرفر الرفع</small>
+            <strong style="font-size:18px;color:#6ee7b7;margin-top:6px;display:flex;align-items:center;gap:6px;">
+              <i class="fa-solid fa-shield-halved"></i> Backend آمن
+            </strong>
+          </div>
+          <div style="font-size:11px;color:#c9c5da;line-height:1.6;margin-top:8px;">
+            المفاتيح محمية تماماً في السيرفر ولا تظهر للمتصفح. الرفع يتم عبر Signed Signature.
+          </div>
+        </article>
+      </section>
+
+      <!-- Video Upload Card -->
+      <section class="glass-card upload-card" id="upload">
+        <div class="section-heading">
+          <div>
+            <small>VIDEO MANAGEMENT</small>
+            <h2>إضافة فيديو جديد</h2>
+          </div>
+          <span class="hint"><i class="fa-solid fa-circle-info"></i> بدون حقول عنوان أو وصف - رفع مباشر للموقع</span>
+        </div>
+
+        <form id="uploadForm">
+          <div class="form-grid">
+            <!-- 1. Category -->
+            <label>مكان ظهور الفيديو في الموقع
+              <select id="category" required>
+                <option value="intro">مقدمة الموقع (Intro)</option>
+                <option value="before_after">قبل وبعد (فيديوهين مستقلين)</option>
+                <option value="reels">Reels</option>
+                <option value="promos">Promos</option>
+                <option value="ads">Ads</option>
+                <option value="motion">Motion</option>
+              </select>
+            </label>
+
+            <!-- 2. Server Selection (Single) -->
+            <label id="singleServerWrap">اختيار سيرفر الرفع
+              <select id="serverSelect" required>
+                <option value="hyperserve">سيرفر 1</option>
+                <option value="cloudinary">سيرفر 2</option>
+              </select>
+            </label>
+
+            <!-- 3. Placement -->
+            <label>مكان الكارت
+              <select id="placement">
+                <option value="first">أول كارت (في بداية القسم)</option>
+                <option value="last">آخر كارت (في نهاية القسم)</option>
+                <option value="number">رقم محدد...</option>
+              </select>
+            </label>
+
+            <!-- 4. Position Number (hidden by default) -->
+            <label id="positionWrap" hidden>رقم الترتيب
+              <input type="number" id="position" min="1" value="1">
+            </label>
+
+            <!-- 5. Aspect Ratio -->
+            <label>نسبة أبعاد الفيديو
+              <select id="ratio">
+                <option value="9 / 16">طولي 9:16 (مناسب لـ Reels)</option>
+                <option value="16 / 9">عرضي 16:9 (مناسب للبرومو والإعلانات)</option>
+                <option value="4 / 5">مربع / 4:5</option>
+              </select>
+            </label>
+          </div>
+
+          <!-- Single File Upload Box -->
+          <div class="file-pair" id="singleFile">
+            <label class="file-box" style="grid-column:1 / -1;">
+              <i class="fa-solid fa-file-video"></i>
+              <b id="singleFileName">اختر ملف الفيديو من جهازك</b>
+              <span>صيغ مدعومة: MP4 / MOV / WebM</span>
+              <input id="videoFile" type="file" accept="video/mp4,video/quicktime,video/webm" required>
+            </label>
+          </div>
+
+          <!-- Before/After Independent Dual Upload Box -->
+          <div class="file-pair" id="pairFiles" hidden>
+            <div class="pair-box">
+              <label class="file-box">
+                <i class="fa-solid fa-circle-arrow-left" style="color:#a78bfa;"></i>
+                <b id="beforeFileName">فيديو قبل (Raw Footage)</b>
+                <span>النسخة الخام قبل التعديل</span>
+                <input id="beforeFile" type="file" accept="video/mp4,video/quicktime,video/webm">
+              </label>
+              <label style="font-size:12px;color:#c9c5da;margin-top:4px;">
+                سيرفر فيديو "قبل":
+                <select id="serverBeforeSelect" style="width:100%;height:38px;border-radius:10px;padding:0 10px;background:#171638;color:#fff;border:1px solid #ffffff30;margin-top:4px;">
+                  <option value="hyperserve">سيرفر 1</option>
+                  <option value="cloudinary">سيرفر 2</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="pair-box">
+              <label class="file-box">
+                <i class="fa-solid fa-circle-arrow-right" style="color:#38bdf8;"></i>
+                <b id="afterFileName">فيديو بعد (Final Edited)</b>
+                <span>النسخة النهائية بعد التعديل والتلوين</span>
+                <input id="afterFile" type="file" accept="video/mp4,video/quicktime,video/webm">
+              </label>
+              <label style="font-size:12px;color:#c9c5da;margin-top:4px;">
+                سيرفر فيديو "بعد":
+                <select id="serverAfterSelect" style="width:100%;height:38px;border-radius:10px;padding:0 10px;background:#171638;color:#fff;border:1px solid #ffffff30;margin-top:4px;">
+                  <option value="hyperserve">سيرفر 1</option>
+                  <option value="cloudinary">سيرفر 2</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <!-- Upload Status & Actions -->
+          <div class="upload-actions">
+            <button class="primary-btn" id="uploadBtn" type="submit">
+              <i class="fa-solid fa-upload"></i> رفع ونشر الفيديو
+            </button>
+            <span class="status" id="uploadStatus"></span>
+          </div>
+          <div class="progress-track"><div id="progressBar"></div></div>
+        </form>
+      </section>
+
+      <!-- Published Media Library -->
+      <section class="glass-card library-card" id="library">
+        <div class="section-heading">
+          <div>
+            <small>CONTENT LIBRARY</small>
+            <h2>الفيديوهات المنشورة في الموقع</h2>
+          </div>
+          <button class="secondary-btn" id="refreshBtn" type="button">
+            <i class="fa-solid fa-rotate-right"></i> تحديث القائمة
+          </button>
+        </div>
+        <div id="mediaList" class="media-list">
+          <div class="empty">جاري تحميل الفيديوهات…</div>
+        </div>
+      </section>
+
+    </div>
+
+    <footer>ABDO CUT · عبد الرحمن — لوحة إدارة المحتوى وسيرفرات الفيديو</footer>
+  </main>
+</div>
+
+<script type="module" src="/admin/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "abdo-cut",
+  "version": "1.0.0",
+  "description": "ABDO CUT - Video Portfolio & Admin Control Panel",
+  "main": "server.js",
+  "scripts": {
+    "build": "echo build ok",
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "cloudinary": "^2.5.1",
+    "dotenv": "^16.4.7"
+  }
+}
