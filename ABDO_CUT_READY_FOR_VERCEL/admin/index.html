@@ -187,8 +187,8 @@
             <!-- 2. Server Selection (Single) -->
             <label id="singleServerWrap">اختيار سيرفر الرفع
               <select id="serverSelect" required>
+                <option value="cloudinary" selected>سيرفر 2 (سريع ومستقر ومفعل)</option>
                 <option value="hyperserve">سيرفر 1</option>
-                <option value="cloudinary">سيرفر 2</option>
               </select>
             </label>
 
@@ -218,44 +218,53 @@
 
           <!-- Single File Upload Box -->
           <div class="file-pair" id="singleFile">
-            <label class="file-box" style="grid-column:1 / -1;">
-              <i class="fa-solid fa-file-video"></i>
+            <div class="file-box" id="singleFileBox" style="grid-column:1 / -1;">
+              <i class="fa-solid fa-file-video" id="singleFileIcon"></i>
               <b id="singleFileName">اختر ملف الفيديو من جهازك</b>
-              <span>صيغ مدعومة: MP4 / MOV / WebM</span>
+              <span id="singleFileHint">صيغ مدعومة: MP4 / MOV / WebM</span>
+              <div id="singlePreviewWrap" style="display:none;width:100%;max-width:320px;margin-top:10px;">
+                <video id="singlePreview" controls style="width:100%;max-height:160px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.5);"></video>
+              </div>
               <input id="videoFile" type="file" accept="video/mp4,video/quicktime,video/webm" required>
-            </label>
+            </div>
           </div>
 
           <!-- Before/After Independent Dual Upload Box -->
           <div class="file-pair" id="pairFiles" hidden>
             <div class="pair-box">
-              <label class="file-box">
-                <i class="fa-solid fa-circle-arrow-left" style="color:#a78bfa;"></i>
+              <div class="file-box" id="beforeFileBox">
+                <i class="fa-solid fa-circle-arrow-left" id="beforeFileIcon" style="color:#a78bfa;"></i>
                 <b id="beforeFileName">فيديو قبل (Raw Footage)</b>
-                <span>النسخة الخام قبل التعديل</span>
+                <span id="beforeFileHint">النسخة الخام قبل التعديل</span>
+                <div id="beforePreviewWrap" style="display:none;width:100%;max-width:280px;margin-top:10px;">
+                  <video id="beforePreview" controls style="width:100%;max-height:130px;border-radius:10px;"></video>
+                </div>
                 <input id="beforeFile" type="file" accept="video/mp4,video/quicktime,video/webm">
-              </label>
+              </div>
               <label style="font-size:12px;color:#c9c5da;margin-top:4px;">
                 سيرفر فيديو "قبل":
                 <select id="serverBeforeSelect" style="width:100%;height:38px;border-radius:10px;padding:0 10px;background:#171638;color:#fff;border:1px solid #ffffff30;margin-top:4px;">
+                  <option value="cloudinary" selected>سيرفر 2</option>
                   <option value="hyperserve">سيرفر 1</option>
-                  <option value="cloudinary">سيرفر 2</option>
                 </select>
               </label>
             </div>
 
             <div class="pair-box">
-              <label class="file-box">
-                <i class="fa-solid fa-circle-arrow-right" style="color:#38bdf8;"></i>
+              <div class="file-box" id="afterFileBox">
+                <i class="fa-solid fa-circle-arrow-right" id="afterFileIcon" style="color:#38bdf8;"></i>
                 <b id="afterFileName">فيديو بعد (Final Edited)</b>
-                <span>النسخة النهائية بعد التعديل والتلوين</span>
+                <span id="afterFileHint">النسخة النهائية بعد التعديل والتلوين</span>
+                <div id="afterPreviewWrap" style="display:none;width:100%;max-width:280px;margin-top:10px;">
+                  <video id="afterPreview" controls style="width:100%;max-height:130px;border-radius:10px;"></video>
+                </div>
                 <input id="afterFile" type="file" accept="video/mp4,video/quicktime,video/webm">
-              </label>
+              </div>
               <label style="font-size:12px;color:#c9c5da;margin-top:4px;">
                 سيرفر فيديو "بعد":
                 <select id="serverAfterSelect" style="width:100%;height:38px;border-radius:10px;padding:0 10px;background:#171638;color:#fff;border:1px solid #ffffff30;margin-top:4px;">
+                  <option value="cloudinary" selected>سيرفر 2</option>
                   <option value="hyperserve">سيرفر 1</option>
-                  <option value="cloudinary">سيرفر 2</option>
                 </select>
               </label>
             </div>

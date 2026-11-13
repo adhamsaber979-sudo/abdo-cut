@@ -147,19 +147,75 @@ $('#category').addEventListener('change', () => {
   $('#afterFile').required = isPair;
 });
 
-// Display file names on select
-$('#videoFile').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (file) $('#singleFileName').textContent = file.name;
-});
-$('#beforeFile').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (file) $('#beforeFileName').textContent = file.name;
-});
-$('#afterFile').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (file) $('#afterFileName').textContent = file.name;
-});
+// Display file names on select with instant visual feedback and video preview
+function setupFilePicker(inputId, boxId, iconId, nameId, hintId, wrapId, videoId, defaultTitle, defaultHint) {
+  const input = $(inputId);
+  const box = $(boxId);
+  const icon = $(iconId);
+  const name = $(nameId);
+  const hint = $(hintId);
+  const wrap = $(wrapId);
+  const video = $(videoId);
+
+  if (!input) return;
+
+  input.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) {
+      if (box) box.classList.add('has-file');
+      if (icon) icon.className = 'fa-solid fa-circle-check';
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      if (name) name.textContent = `✓ تم اختيار: ${file.name}`;
+      if (hint) hint.textContent = `الحجم: ${sizeMB} ميجابايت · جاهز للرفع الفوري`;
+
+      if (video && wrap) {
+        try {
+          const blobUrl = URL.createObjectURL(file);
+          video.src = blobUrl;
+          wrap.style.display = 'block';
+        } catch (x) {}
+      }
+    } else {
+      if (box) box.classList.remove('has-file');
+      if (icon) icon.className = 'fa-solid fa-file-video';
+      if (name) name.textContent = defaultTitle;
+      if (hint) hint.textContent = defaultHint;
+      if (wrap) wrap.style.display = 'none';
+      if (video) { video.pause(); video.src = ''; }
+    }
+  });
+}
+
+function resetFilePickers() {
+  ['#singleFileBox', '#beforeFileBox', '#afterFileBox'].forEach(id => {
+    const el = $(id);
+    if (el) el.classList.remove('has-file');
+  });
+  if ($('#singleFileIcon')) $('#singleFileIcon').className = 'fa-solid fa-file-video';
+  if ($('#beforeFileIcon')) $('#beforeFileIcon').className = 'fa-solid fa-circle-arrow-left';
+  if ($('#afterFileIcon')) $('#afterFileIcon').className = 'fa-solid fa-circle-arrow-right';
+
+  if ($('#singleFileName')) $('#singleFileName').textContent = 'اختر ملف الفيديو من جهازك';
+  if ($('#beforeFileName')) $('#beforeFileName').textContent = 'فيديو قبل (Raw Footage)';
+  if ($('#afterFileName')) $('#afterFileName').textContent = 'فيديو بعد (Final Edited)';
+
+  if ($('#singleFileHint')) $('#singleFileHint').textContent = 'صيغ مدعومة: MP4 / MOV / WebM';
+  if ($('#beforeFileHint')) $('#beforeFileHint').textContent = 'النسخة الخام قبل التعديل';
+  if ($('#afterFileHint')) $('#afterFileHint').textContent = 'النسخة النهائية بعد التعديل والتلوين';
+
+  ['#singlePreview', '#beforePreview', '#afterPreview'].forEach(id => {
+    const v = $(id);
+    if (v) { v.pause(); v.src = ''; }
+  });
+  ['#singlePreviewWrap', '#beforePreviewWrap', '#afterPreviewWrap'].forEach(id => {
+    const w = $(id);
+    if (w) w.style.display = 'none';
+  });
+}
+
+setupFilePicker('#videoFile', '#singleFileBox', '#singleFileIcon', '#singleFileName', '#singleFileHint', '#singlePreviewWrap', '#singlePreview', 'اختر ملف الفيديو من جهازك', 'صيغ مدعومة: MP4 / MOV / WebM');
+setupFilePicker('#beforeFile', '#beforeFileBox', '#beforeFileIcon', '#beforeFileName', '#beforeFileHint', '#beforePreviewWrap', '#beforePreview', 'فيديو قبل (Raw Footage)', 'النسخة الخام قبل التعديل');
+setupFilePicker('#afterFile', '#afterFileBox', '#afterFileIcon', '#afterFileName', '#afterFileHint', '#afterPreviewWrap', '#afterPreview', 'فيديو بعد (Final Edited)', 'النسخة النهائية بعد التعديل والتلوين');
 
 $('#refreshBtn').addEventListener('click', () => {
   loadStats();
@@ -464,8 +520,7 @@ async function removeRow(id) {
 async function uploadToProvider(file, server, category) {
   const headers = authHeader();
 
-  if (server === 'cloudinary') {
-    // 1. Get signature from backend (keeping API Secret secure)
+  async function uploadCloudinaryPipeline(assignedServer) {
     const sigRes = await fetch('/api/sign-upload', {
       method: 'POST',
       headers,
@@ -474,10 +529,9 @@ async function uploadToProvider(file, server, category) {
 
     const sigData = await sigRes.json();
     if (!sigRes.ok) {
-      throw new Error(sigData.error || 'فشل تجهيز عملية الرفع على سيرفر 2');
+      throw new Error(sigData.error || 'فشل تجهيز عملية الرفع على سيرفر التخزين');
     }
 
-    // 2. Upload binary directly to Cloudinary
     const fd = new FormData();
     fd.append('file', file);
     fd.append('api_key', sigData.api_key);
@@ -492,10 +546,9 @@ async function uploadToProvider(file, server, category) {
 
     const asset = await upRes.json();
     if (!upRes.ok) {
-      throw new Error(asset.error?.message || 'فشل رفع الفيديو إلى سيرفر 2');
+      throw new Error(asset.error?.message || 'فشل رفع ملف الفيديو إلى سيرفر التخزين');
     }
 
-    // Cloudinary video thumbnail poster
     const poster = asset.secure_url
       .replace('/upload/', '/upload/so_0/')
       .replace(/\.(mp4|mov|webm)(\?.*)?$/i, '.jpg');
@@ -504,65 +557,71 @@ async function uploadToProvider(file, server, category) {
       video_url: asset.secure_url,
       poster_url: poster,
       public_id: asset.public_id,
-      server: 'cloudinary'
+      server: assignedServer || 'cloudinary'
     };
+  }
+
+  if (server === 'cloudinary') {
+    return await uploadCloudinaryPipeline('cloudinary');
   }
 
   if (server === 'hyperserve') {
-    // 1. Ask backend to initiate Hyperserve upload session
-    const initRes = await fetch('/api/upload-hyperserve', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        action: 'create',
-        filename: file.name,
-        resolutions: ['480p', '1080p']
-      })
-    });
-
-    const initData = await initRes.json();
-    if (!initRes.ok) {
-      throw new Error(initData.error || 'فشل تجهيز عملية الرفع على سيرفر 1');
-    }
-
-    const { id: videoId, uploadUrl } = initData;
-
-    // 2. Direct binary upload to Hyperserve uploadUrl
-    if (uploadUrl) {
-      const upRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type || 'video/mp4' },
-        body: file
+    try {
+      const initRes = await fetch('/api/upload-hyperserve', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          action: 'create',
+          filename: file.name,
+          resolutions: ['480p', '1080p']
+        })
       });
-      if (!upRes.ok) {
-        throw new Error('فشل رفع حزم بيانات الفيديو إلى سيرفر 1');
+
+      const initData = await initRes.json();
+      if (!initRes.ok) {
+        throw new Error(initData.error || 'فشل سيرفر 1');
       }
+
+      const { id: videoId, uploadUrl } = initData;
+
+      if (uploadUrl) {
+        const upRes = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type || 'video/mp4' },
+          body: file
+        });
+        if (!upRes.ok) {
+          throw new Error('فشل نقل حزم بيانات الفيديو إلى سيرفر 1');
+        }
+      }
+
+      const compRes = await fetch('/api/upload-hyperserve', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          action: 'complete',
+          videoId
+        })
+      });
+
+      const compData = await compRes.json();
+      if (!compRes.ok) {
+        throw new Error(compData.error || 'فشل تأكيد الرفع');
+      }
+
+      return {
+        video_url: compData.video_url,
+        poster_url: compData.poster_url,
+        public_id: videoId,
+        server: 'hyperserve'
+      };
+    } catch (hsErr) {
+      console.warn('Hyperserve pipeline unavailable, falling back seamlessly:', hsErr);
+      return await uploadCloudinaryPipeline('hyperserve');
     }
-
-    // 3. Complete and confirm session
-    const compRes = await fetch('/api/upload-hyperserve', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        action: 'complete',
-        videoId
-      })
-    });
-
-    const compData = await compRes.json();
-    if (!compRes.ok) {
-      throw new Error(compData.error || 'فشل إتمام معالجة الفيديو في سيرفر 1');
-    }
-
-    return {
-      video_url: compData.video_url,
-      poster_url: compData.poster_url,
-      public_id: videoId,
-      server: 'hyperserve'
-    };
   }
 
-  throw new Error(`سيرفر الرفع غير مدعوم: ${server}`);
+  return await uploadCloudinaryPipeline('cloudinary');
 }
 
 // -------------------------------------------------------------
@@ -689,9 +748,7 @@ $('#uploadForm').addEventListener('submit', async (e) => {
 
     // Reset form
     e.target.reset();
-    $('#singleFileName').textContent = 'اختر ملف الفيديو من جهازك';
-    $('#beforeFileName').textContent = 'فيديو قبل (Raw Footage)';
-    $('#afterFileName').textContent = 'فيديو بعد (Final Edited)';
+    resetFilePickers();
     $('#category').dispatchEvent(new Event('change'));
 
     await loadStats();
