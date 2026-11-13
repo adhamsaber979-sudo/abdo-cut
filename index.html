@@ -836,10 +836,10 @@ var CATEGORIES = [
       var x = W * view.pos / 100;
       if (view.item.before_url && view.item.after_url) {
         // Dual independent videos: Before (raw) and After (edited)
-        // Keep playback in sync
+        // Keep playback roughly aligned without disrupting audio stream
         if (view.videoBefore && view.videoAfter && view.videoBefore.readyState >= 2 && view.videoAfter.readyState >= 2) {
           var dt = Math.abs(view.videoBefore.currentTime - view.videoAfter.currentTime);
-          if (dt > 0.15) { view.videoBefore.currentTime = view.videoAfter.currentTime; }
+          if (dt > 0.5) { view.videoBefore.currentTime = view.videoAfter.currentTime; }
         }
         var vb = view.videoBefore && view.videoBefore.readyState >= 2 ? view.videoBefore : (view.posterBefore && view.posterBefore.naturalWidth ? view.posterBefore : null);
         var va = view.videoAfter && view.videoAfter.readyState >= 2 ? view.videoAfter : (view.posterAfter && view.posterAfter.naturalWidth ? view.posterAfter : null);
@@ -927,7 +927,7 @@ var CATEGORIES = [
     parent.appendChild(el);
     var view = addView(el.querySelector('canvas'), item, 'compare', { host: el, pos: 50, target: 50, range: el.querySelector('input'), tc: el.querySelector('.tc'), interacting: false });
 
-    // Audio hover controller: sound plays ONLY on hover over Before & After, cuts off when leaving
+    // Audio hover controller: sound plays smoothly whether moving right OR left, mutes when leaving
     var isHover = false;
     var dragging = false;
     var dragTimer = null;
@@ -939,30 +939,19 @@ var CATEGORIES = [
         if (view.video) view.video.muted = true;
         return;
       }
-      var target = null;
-      var other = null;
-      if (view.videoBefore && view.videoAfter) {
-        // Slider pos >= 50 means user sees mostly After (left side), pos < 50 plays Before
-        if (view.pos >= 50) {
-          target = view.videoAfter;
-          other = view.videoBefore;
-        } else {
-          target = view.videoBefore;
-          other = view.videoAfter;
-        }
-      } else if (view.video) {
-        target = view.video;
+      // Hover active: sound plays continuously across the entire card in both directions (right and left)
+      var master = view.videoAfter || view.video || view.videoBefore;
+      if (view.videoBefore && view.videoBefore !== master) {
+        view.videoBefore.muted = true;
       }
-
-      if (other) { other.muted = true; }
-      if (target) {
-        target.muted = false;
-        var p = target.play();
+      if (master) {
+        master.muted = false;
+        var p = master.play();
         if (p && p.catch) {
           p.catch(function () {
             // Autoplay policy fallback: keep muted until user clicks anywhere
-            target.muted = true;
-            target.play().catch(function () {});
+            master.muted = true;
+            master.play().catch(function () {});
           });
         }
       }
