@@ -526,7 +526,7 @@ var VIDEO_BASE = 'videos/';
 function video(id, extra) { return Object.assign({ src: VIDEO_BASE + id + '-loop.mp4', full: VIDEO_BASE + id + '.mp4', poster: VIDEO_BASE + id + '.jpg' }, extra || {}); }
 function pair(id, finished, seed) { return { src: VIDEO_BASE + id + '.mp4', poster: VIDEO_BASE + id + '.jpg', full: VIDEO_BASE + finished + '.mp4', seed: seed }; }
 
-var CONTACT = { whatsapp: '201037103806', phone: '01037103806' };
+var CONTACT = { whatsapp: '201515660484', phone: '01515660484' };
 var CATEGORIES = [
   {
     id: 'reels', name: 'ريلز', about: 'فيديوهات قصيرة بالطول لإنستجرام وتيك توك.',
@@ -836,11 +836,7 @@ var CATEGORIES = [
       var x = W * view.pos / 100;
       if (view.item.before_url && view.item.after_url) {
         // Dual independent videos: Before (raw) and After (edited)
-        // Keep playback roughly aligned without disrupting audio stream
-        if (view.videoBefore && view.videoAfter && view.videoBefore.readyState >= 2 && view.videoAfter.readyState >= 2) {
-          var dt = Math.abs(view.videoBefore.currentTime - view.videoAfter.currentTime);
-          if (dt > 0.5) { view.videoBefore.currentTime = view.videoAfter.currentTime; }
-        }
+        // Let both videos stream and loop smoothly without forced seeking
         var vb = view.videoBefore && view.videoBefore.readyState >= 2 ? view.videoBefore : (view.posterBefore && view.posterBefore.naturalWidth ? view.posterBefore : null);
         var va = view.videoAfter && view.videoAfter.readyState >= 2 ? view.videoAfter : (view.posterAfter && view.posterAfter.naturalWidth ? view.posterAfter : null);
 
@@ -881,25 +877,17 @@ var CATEGORIES = [
       if (view.kind !== 'compare' && view.kind !== 'journey') { if (gate) { paint(view, t); } return; }
       var journey = view.kind === 'journey', apply = journey ? applyJourney : applyPos;
 
-      if (!view.interacting) {
-        if (gate || view.recovering) {
+      if (!view.touched) {
+        if (gate) {
           if (journey && view.startedAt === undefined) { view.startedAt = t; }
-          var autoPos = journey ? autoJourney(t - view.startedAt) : 50 + Math.sin(t * 0.6 + (view.item.seed || 0)) * 25;
-          var diff = autoPos - view.pos;
-          if (Math.abs(diff) > 0.1) {
-            view.pos += diff * 0.08;
-            view.recovering = true;
-          } else {
-            view.pos = autoPos;
-            view.recovering = false;
-          }
+          view.pos = journey ? autoJourney(t - view.startedAt) : 50 + Math.sin(t * 0.6 + (view.item.seed || 0)) * 25;
           apply(view);
           paint(view, t);
-          if (view.syncAudio) { view.syncAudio(); }
         }
         return;
       }
 
+      // Slider has been moved by user: smoothly glides to chosen target and STAYS FIXED there
       var d = view.target - view.pos, moving = Math.abs(d) > .03;
       if (moving) { view.pos += d * .35; apply(view); }
       if (moving || gate) { paint(view, t); }
@@ -907,6 +895,7 @@ var CATEGORIES = [
   }
   function setPos(view, pos) {
     view.target = Math.max(0, Math.min(100, pos));
+    view.touched = true; // Stay firmly in place where user placed it
     view.range.value = Math.round(view.target);
     if (view.syncAudio) { view.syncAudio(); }
     if (REDUCED) { view.pos = view.target; applyPos(view); paint(view, 1.5); }
@@ -925,12 +914,11 @@ var CATEGORIES = [
     el.querySelector('.compare-foot span').textContent = item.type ? item.type + (item.demo ? ' · مثال' : '') : '';
     el.querySelector('input').setAttribute('aria-label', 'قارن بين قبل وبعد' + (item.title ? ': ' + item.title : ''));
     parent.appendChild(el);
-    var view = addView(el.querySelector('canvas'), item, 'compare', { host: el, pos: 50, target: 50, range: el.querySelector('input'), tc: el.querySelector('.tc'), interacting: false });
+    var view = addView(el.querySelector('canvas'), item, 'compare', { host: el, pos: 50, target: 50, range: el.querySelector('input'), tc: el.querySelector('.tc') });
 
     // Audio hover controller: sound plays smoothly whether moving right OR left, mutes when leaving
     var isHover = false;
     var dragging = false;
-    var dragTimer = null;
 
     function syncAudio() {
       if (!isHover) {
@@ -972,16 +960,14 @@ var CATEGORIES = [
     el.addEventListener('pointerleave', function () {
       isHover = false;
       dragging = false;
-      view.interacting = false;
       syncAudio();
+      // Notice: view.touched is preserved! The slider stays fixed right where the user put it.
     });
 
     el.addEventListener('pointerdown', function (e) {
       if (e.target.closest('.watch')) { return; }
       isHover = true;
       dragging = true;
-      view.interacting = true;
-      if (dragTimer) { clearTimeout(dragTimer); dragTimer = null; }
       try { el.setPointerCapture(e.pointerId); } catch (x) {}
       at(e);
       syncAudio();
@@ -994,25 +980,15 @@ var CATEGORIES = [
     });
 
     function stopDrag() {
-      if (dragging) {
-        dragging = false;
-        if (dragTimer) clearTimeout(dragTimer);
-        dragTimer = setTimeout(function () {
-          if (!dragging) {
-            view.interacting = false;
-          }
-        }, 600);
-      }
+      dragging = false;
+      // Slider stays fixed at user's position!
     }
 
     el.addEventListener('pointerup', stopDrag);
     el.addEventListener('pointercancel', stopDrag);
 
     view.range.addEventListener('input', function () {
-      view.interacting = true;
       setPos(view, Number(view.range.value));
-      if (dragTimer) clearTimeout(dragTimer);
-      dragTimer = setTimeout(function () { if (!dragging) view.interacting = false; }, 600);
     });
 
     var watch = el.querySelector('.watch');
