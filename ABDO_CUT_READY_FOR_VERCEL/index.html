@@ -836,6 +836,11 @@ var CATEGORIES = [
       var x = W * view.pos / 100;
       if (view.item.before_url && view.item.after_url) {
         // Dual independent videos: Before (raw) and After (edited)
+        // Keep playback in sync
+        if (view.videoBefore && view.videoAfter && view.videoBefore.readyState >= 2 && view.videoAfter.readyState >= 2) {
+          var dt = Math.abs(view.videoBefore.currentTime - view.videoAfter.currentTime);
+          if (dt > 0.15) { view.videoBefore.currentTime = view.videoAfter.currentTime; }
+        }
         var vb = view.videoBefore && view.videoBefore.readyState >= 2 ? view.videoBefore : (view.posterBefore && view.posterBefore.naturalWidth ? view.posterBefore : null);
         var va = view.videoAfter && view.videoAfter.readyState >= 2 ? view.videoAfter : (view.posterAfter && view.posterAfter.naturalWidth ? view.posterAfter : null);
 
@@ -865,7 +870,6 @@ var CATEGORIES = [
 
   function applyPos(view) {
     view.host.style.setProperty('--pos', view.pos + '%');
-    if (view.updateAudio) { view.updateAudio(); }
   }
   /* the footage runs at FPS; a slider being dragged glides at the display's full rate */
   var last = 0;
@@ -876,21 +880,35 @@ var CATEGORIES = [
       if (!view.visible || (dlg.open && view.kind !== 'theater')) { return; }
       if (view.kind !== 'compare' && view.kind !== 'journey') { if (gate) { paint(view, t); } return; }
       var journey = view.kind === 'journey', apply = journey ? applyJourney : applyPos;
-      if (!view.touched) {
-        if (gate) {
+
+      if (!view.interacting) {
+        if (gate || view.recovering) {
           if (journey && view.startedAt === undefined) { view.startedAt = t; }
-          view.pos = journey ? autoJourney(t - view.startedAt) : 50 + Math.sin(t * .5 + (view.item.seed || 0)) * 24;
-          apply(view); paint(view, t);
+          var autoPos = journey ? autoJourney(t - view.startedAt) : 50 + Math.sin(t * 0.6 + (view.item.seed || 0)) * 25;
+          var diff = autoPos - view.pos;
+          if (Math.abs(diff) > 0.1) {
+            view.pos += diff * 0.08;
+            view.recovering = true;
+          } else {
+            view.pos = autoPos;
+            view.recovering = false;
+          }
+          apply(view);
+          paint(view, t);
+          if (view.syncAudio) { view.syncAudio(); }
         }
         return;
       }
+
       var d = view.target - view.pos, moving = Math.abs(d) > .03;
-      if (moving) { view.pos += d * .24; apply(view); }
+      if (moving) { view.pos += d * .35; apply(view); }
       if (moving || gate) { paint(view, t); }
     });
   }
   function setPos(view, pos) {
-    view.target = Math.max(0, Math.min(100, pos)); view.touched = true; view.range.value = Math.round(view.target);
+    view.target = Math.max(0, Math.min(100, pos));
+    view.range.value = Math.round(view.target);
+    if (view.syncAudio) { view.syncAudio(); }
     if (REDUCED) { view.pos = view.target; applyPos(view); paint(view, 1.5); }
   }
 
@@ -907,47 +925,114 @@ var CATEGORIES = [
     el.querySelector('.compare-foot span').textContent = item.type ? item.type + (item.demo ? ' · مثال' : '') : '';
     el.querySelector('input').setAttribute('aria-label', 'قارن بين قبل وبعد' + (item.title ? ': ' + item.title : ''));
     parent.appendChild(el);
-    var view = addView(el.querySelector('canvas'), item, 'compare', { host: el, pos: 50, target: 50, range: el.querySelector('input'), tc: el.querySelector('.tc') });
-    var isHovering = false;
-    function updateAudio() {
-      if (!isHovering) {
+    var view = addView(el.querySelector('canvas'), item, 'compare', { host: el, pos: 50, target: 50, range: el.querySelector('input'), tc: el.querySelector('.tc'), interacting: false });
+
+    // Audio hover controller: sound plays ONLY on hover over Before & After, cuts off when leaving
+    var isHover = false;
+    var dragging = false;
+    var dragTimer = null;
+
+    function syncAudio() {
+      if (!isHover) {
         if (view.videoBefore) view.videoBefore.muted = true;
         if (view.videoAfter) view.videoAfter.muted = true;
         if (view.video) view.video.muted = true;
         return;
       }
+      var target = null;
+      var other = null;
       if (view.videoBefore && view.videoAfter) {
-        if (view.pos > 50) {
-          view.videoAfter.muted = false;
-          view.videoBefore.muted = true;
+        // Slider pos >= 50 means user sees mostly After (left side), pos < 50 plays Before
+        if (view.pos >= 50) {
+          target = view.videoAfter;
+          other = view.videoBefore;
         } else {
-          view.videoBefore.muted = false;
-          view.videoAfter.muted = true;
+          target = view.videoBefore;
+          other = view.videoAfter;
         }
       } else if (view.video) {
-        view.video.muted = false;
+        target = view.video;
+      }
+
+      if (other) { other.muted = true; }
+      if (target) {
+        target.muted = false;
+        var p = target.play();
+        if (p && p.catch) {
+          p.catch(function () {
+            // Autoplay policy fallback: keep muted until user clicks anywhere
+            target.muted = true;
+            target.play().catch(function () {});
+          });
+        }
       }
     }
-    view.updateAudio = updateAudio;
+    view.syncAudio = syncAudio;
 
-    el.addEventListener('pointerenter', function () { isHovering = true; updateAudio(); });
-    el.addEventListener('pointerleave', function () { isHovering = false; updateAudio(); });
+    function at(e) {
+      var r = el.getBoundingClientRect();
+      var pct = Math.max(0, Math.min(100, (e.clientX - r.left) / r.width * 100));
+      setPos(view, pct);
+    }
 
-    function at(e) { var r = el.getBoundingClientRect(); setPos(view, (e.clientX - r.left) / r.width * 100); }
-    var dragging = false;
+    el.addEventListener('pointerenter', function () {
+      isHover = true;
+      syncAudio();
+    });
+
+    el.addEventListener('pointerleave', function () {
+      isHover = false;
+      dragging = false;
+      view.interacting = false;
+      syncAudio();
+    });
+
     el.addEventListener('pointerdown', function (e) {
       if (e.target.closest('.watch')) { return; }
-      isHovering = true;
-      updateAudio();
+      isHover = true;
       dragging = true;
+      view.interacting = true;
+      if (dragTimer) { clearTimeout(dragTimer); dragTimer = null; }
       try { el.setPointerCapture(e.pointerId); } catch (x) {}
       at(e);
+      syncAudio();
     });
-    el.addEventListener('pointermove', function (e) { if (dragging) { at(e); } });
-    ['pointerup', 'pointercancel'].forEach(function (n) { el.addEventListener(n, function () { dragging = false; }); });
-    view.range.addEventListener('input', function () { setPos(view, Number(view.range.value)); });
+
+    el.addEventListener('pointermove', function (e) {
+      if (dragging) {
+        at(e);
+      }
+    });
+
+    function stopDrag() {
+      if (dragging) {
+        dragging = false;
+        if (dragTimer) clearTimeout(dragTimer);
+        dragTimer = setTimeout(function () {
+          if (!dragging) {
+            view.interacting = false;
+          }
+        }, 600);
+      }
+    }
+
+    el.addEventListener('pointerup', stopDrag);
+    el.addEventListener('pointercancel', stopDrag);
+
+    view.range.addEventListener('input', function () {
+      view.interacting = true;
+      setPos(view, Number(view.range.value));
+      if (dragTimer) clearTimeout(dragTimer);
+      dragTimer = setTimeout(function () { if (!dragging) view.interacting = false; }, 600);
+    });
+
     var watch = el.querySelector('.watch');
-    if (watch) { watch.addEventListener('click', function () { var w = watchTarget(cat, item); openTheater(w.list, w.index); }); }
+    if (watch) {
+      watch.addEventListener('click', function () {
+        var w = watchTarget(cat, item);
+        openTheater(w.list, w.index);
+      });
+    }
   }
   /* a real before/after opens the finished video it came from, inside the tab's list when it is there */
   function watchTarget(cat, item) {
@@ -1230,6 +1315,16 @@ var CATEGORIES = [
   document.getElementById('demo-note').hidden = !CATEGORIES.some(function (cat) { return (cat.big ? [cat.big] : []).concat(cat.work || [], cat.pairs || []).some(function (x) { return x && x.demo; }); });
 
   if (REDUCED) { views.forEach(function (v) { paint(v, 1.5); }); } else { requestAnimationFrame(loop); }
+
+  // Global document gesture listener: unlock audio playback on first interaction
+  function unlockMediaAudio() {
+    views.forEach(function (v) {
+      if (v.kind === 'compare' && v.syncAudio) { v.syncAudio(); }
+    });
+  }
+  ['click', 'pointerdown', 'touchstart', 'keydown'].forEach(function (ev) {
+    document.addEventListener(ev, unlockMediaAudio, { passive: true });
+  });
 }());
 </script>
 
