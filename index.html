@@ -231,6 +231,8 @@ h2 { margin: 0; font-family: var(--display); font-weight: 700; font-size: clamp(
 .compare.big { border-radius: var(--r-l); box-shadow: 0 30px 70px -36px #9c45ff99; }
 .compare::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; box-shadow: inset 0 0 0 1px #ffffff14; }
 .compare canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.comp-vid { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+.comp-after-wrap { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; clip-path: inset(0 calc(100% - var(--pos)) 0 0); -webkit-clip-path: inset(0 calc(100% - var(--pos)) 0 0); }
 .compare .rule {
   position: absolute; top: 0; bottom: 0; left: var(--pos); width: 2px; margin-left: -1px; pointer-events: none;
   background: linear-gradient(to bottom, #f8f7ff00, #f8f7ff 16%, #f8f7ff 84%, #f8f7ff00); box-shadow: 0 0 16px #a855f7;
@@ -805,12 +807,8 @@ var CATEGORIES = [
       var view = en.target.__view; if (!view) { return; }
       view.visible = en.isIntersecting;
       /* load comparison video when reached on screen */
-      if (en.isIntersecting && view.kind === 'compare' && (view.item.src || view.item.before_url) && AUTOPLAY) {
-        if (view.item.before_url && view.item.after_url && !view.videoBefore) {
-          var vb = document.createElement('video'); vb.muted = true; vb.loop = true; vb.playsInline = true; vb.setAttribute('playsinline', ''); vb.preload = 'auto'; vb.src = view.item.before_url;
-          var va = document.createElement('video'); va.muted = true; va.loop = true; va.playsInline = true; va.setAttribute('playsinline', ''); va.preload = 'auto'; va.src = view.item.after_url;
-          view.videoBefore = vb; view.videoAfter = va;
-        } else if (view.item.src && !view.video) {
+      if (en.isIntersecting && view.kind === 'compare' && !view.hasDual && AUTOPLAY) {
+        if (view.item.src && !view.video) {
           var v = document.createElement('video'); v.muted = true; v.loop = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto'; v.src = view.item.src;
           view.video = v;
         }
@@ -833,6 +831,7 @@ var CATEGORIES = [
     if (view.kind === 'journey') { paintJourney(view, t); return; }
     var c = view.ctx, W = view.canvas.width, H = view.canvas.height; if (!W || !H) { return; }
     if (view.kind === 'compare') {
+      if (view.hasDual) { return; } // Rendered natively by GPU-accelerated video elements in DOM
       var x = W * view.pos / 100;
       if (view.item.before_url && view.item.after_url) {
         // Dual independent videos: Before (raw) and After (edited)
@@ -907,14 +906,27 @@ var CATEGORIES = [
 
   function buildCompare(item, cat, parent, big, index) {
     var el = document.createElement('div'); el.className = 'compare' + (big ? ' big' : ''); el.style.setProperty('--i', index); el.style.setProperty('--ratio', item.ratio);
-    el.innerHTML = '<canvas></canvas><div class="rule"></div><span class="side after">بعد</span><span class="side before">قبل</span>' +
+    var hasDual = !!(item.before_url && item.after_url);
+    el.innerHTML = (hasDual ? '<video class="comp-vid comp-before" playsinline muted loop preload="auto"></video><div class="comp-after-wrap"><video class="comp-vid comp-after" playsinline muted loop preload="auto"></video></div>' : '') +
+      '<canvas' + (hasDual ? ' hidden' : '') + '></canvas><div class="rule"></div><span class="side after">بعد</span><span class="side before">قبل</span>' +
       '<input type="range" min="0" max="100" value="50"><div class="knob">' + KNOB + '</div>' +
       '<div class="compare-foot"><div><b></b><span></span></div><div class="foot-end">' + (big && !item.src ? '<span class="tc">00:00:00:00</span>' : '') + (canWatch(item) ? '<button class="watch" type="button">شوفه كامل</button>' : '') + '</div></div>';
     el.querySelector('b').textContent = item.title || '';
     el.querySelector('.compare-foot span').textContent = item.type ? item.type + (item.demo ? ' · مثال' : '') : '';
     el.querySelector('input').setAttribute('aria-label', 'قارن بين قبل وبعد' + (item.title ? ': ' + item.title : ''));
     parent.appendChild(el);
-    var view = addView(el.querySelector('canvas'), item, 'compare', { host: el, pos: 50, target: 50, range: el.querySelector('input'), tc: el.querySelector('.tc') });
+    var view = addView(el.querySelector('canvas'), item, 'compare', { host: el, pos: 50, target: 50, range: el.querySelector('input'), tc: el.querySelector('.tc'), hasDual: hasDual });
+
+    if (hasDual) {
+      var vb = el.querySelector('.comp-before');
+      var va = el.querySelector('.comp-after');
+      if (item.before_poster) vb.poster = item.before_poster;
+      if (item.after_poster) va.poster = item.after_poster;
+      vb.src = item.before_url;
+      va.src = item.after_url;
+      view.videoBefore = vb;
+      view.videoAfter = va;
+    }
 
     // Audio hover controller: sound plays smoothly whether moving right OR left, mutes when leaving
     var isHover = false;
