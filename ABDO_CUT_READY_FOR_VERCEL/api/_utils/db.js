@@ -70,8 +70,8 @@ async function getServerCounts() {
 async function saveMediaRecords(records, orderedIds) {
   const supabase = getSupabaseClient();
   const counts = await getServerCounts();
-  const limitHyperserve = parseInt(process.env.SERVER_LIMIT_HYPERSERVE || '10', 10);
-  const limitCloudinary = parseInt(process.env.SERVER_LIMIT_CLOUDINARY || '10', 10);
+  const limitHyperserve = parseInt(process.env.SERVER_LIMIT_HYPERSERVE || '15', 10);
+  const limitCloudinary = parseInt(process.env.SERVER_LIMIT_CLOUDINARY || '15', 10);
 
   // Validate server limit for incoming records
   for (const r of records) {

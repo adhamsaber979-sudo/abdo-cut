@@ -863,7 +863,10 @@ var CATEGORIES = [
     if (view.tc) { view.tc.textContent = tc(t); }
   }
 
-  function applyPos(view) { view.host.style.setProperty('--pos', view.pos + '%'); }
+  function applyPos(view) {
+    view.host.style.setProperty('--pos', view.pos + '%');
+    if (view.updateAudio) { view.updateAudio(); }
+  }
   /* the footage runs at FPS; a slider being dragged glides at the display's full rate */
   var last = 0;
   function loop(now) {
@@ -905,9 +908,41 @@ var CATEGORIES = [
     el.querySelector('input').setAttribute('aria-label', 'قارن بين قبل وبعد' + (item.title ? ': ' + item.title : ''));
     parent.appendChild(el);
     var view = addView(el.querySelector('canvas'), item, 'compare', { host: el, pos: 50, target: 50, range: el.querySelector('input'), tc: el.querySelector('.tc') });
+    var isHovering = false;
+    function updateAudio() {
+      if (!isHovering) {
+        if (view.videoBefore) view.videoBefore.muted = true;
+        if (view.videoAfter) view.videoAfter.muted = true;
+        if (view.video) view.video.muted = true;
+        return;
+      }
+      if (view.videoBefore && view.videoAfter) {
+        if (view.pos > 50) {
+          view.videoAfter.muted = false;
+          view.videoBefore.muted = true;
+        } else {
+          view.videoBefore.muted = false;
+          view.videoAfter.muted = true;
+        }
+      } else if (view.video) {
+        view.video.muted = false;
+      }
+    }
+    view.updateAudio = updateAudio;
+
+    el.addEventListener('pointerenter', function () { isHovering = true; updateAudio(); });
+    el.addEventListener('pointerleave', function () { isHovering = false; updateAudio(); });
+
     function at(e) { var r = el.getBoundingClientRect(); setPos(view, (e.clientX - r.left) / r.width * 100); }
     var dragging = false;
-    el.addEventListener('pointerdown', function (e) { if (e.target.closest('.watch')) { return; } dragging = true; try { el.setPointerCapture(e.pointerId); } catch (x) {} at(e); });
+    el.addEventListener('pointerdown', function (e) {
+      if (e.target.closest('.watch')) { return; }
+      isHovering = true;
+      updateAudio();
+      dragging = true;
+      try { el.setPointerCapture(e.pointerId); } catch (x) {}
+      at(e);
+    });
     el.addEventListener('pointermove', function (e) { if (dragging) { at(e); } });
     ['pointerup', 'pointercancel'].forEach(function (n) { el.addEventListener(n, function () { dragging = false; }); });
     view.range.addEventListener('input', function () { setPos(view, Number(view.range.value)); });
@@ -947,7 +982,11 @@ var CATEGORIES = [
   /* only one video plays at a time: the loops behind the player rest until it closes */
   function restLoops() {
     loops.forEach(function (r) { r.video.pause(); });
-    views.forEach(function (x) { if (x.video) { x.video.pause(); } });
+    views.forEach(function (x) {
+      if (x.video) { x.video.pause(); x.video.muted = true; }
+      if (x.videoBefore) { x.videoBefore.pause(); x.videoBefore.muted = true; }
+      if (x.videoAfter) { x.videoAfter.pause(); x.videoAfter.muted = true; }
+    });
   }
   function wakeLoops() {
     loops.forEach(function (r) { if (r.on) { r.video.play().catch(function () {}); } });

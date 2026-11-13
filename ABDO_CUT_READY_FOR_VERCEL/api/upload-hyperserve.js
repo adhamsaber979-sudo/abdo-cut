@@ -22,9 +22,9 @@ module.exports = async (req, res) => {
   }
   const { action, videoId, filename, resolutions } = body || {};
 
-  // Check Hyperserve server limit (10 videos)
+  // Check Hyperserve server limit (15 videos)
   const counts = await getServerCounts();
-  const limit = parseInt(process.env.SERVER_LIMIT_HYPERSERVE || '10', 10);
+  const limit = parseInt(process.env.SERVER_LIMIT_HYPERSERVE || '15', 10);
   if (counts.hyperserve >= limit) {
     return res.status(400).json({
       error: `وصل سيرفر 1 للحد الأقصى التنظيمي (${limit} فيديوهات). يرجى استخدام سيرفر 2 أو حذف فيديوهات قديمة.`
@@ -32,7 +32,7 @@ module.exports = async (req, res) => {
   }
 
   const apiKey = process.env.HYPERSERVE_API_KEY;
-  const baseUrl = process.env.HYPERSERVE_API_URL || 'https://api.hyperserve.io/v1';
+  const baseUrl = process.env.HYPERSERVE_API_URL || 'https://api.hyperserve.io/api/video';
 
   if (!apiKey) {
     return res.status(503).json({
@@ -43,10 +43,10 @@ module.exports = async (req, res) => {
   // Action 1: Create Upload Session
   if (action === 'create' || !action) {
     try {
-      const response = await fetch(`${baseUrl}/videos`, {
+      const response = await fetch(baseUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'X-API-KEY': apiKey,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -74,33 +74,15 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'معرف الفيديو مطلوب لإكمال الرفع' });
     }
 
-    try {
-      const response = await fetch(`${baseUrl}/videos/${videoId}/complete`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        }
-      });
+    const videoUrl = `https://cdn.hyperserve.io/${videoId}/1080p.mp4`;
+    const posterUrl = `https://cdn.hyperserve.io/${videoId}/poster.jpg`;
 
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data.message || data.error || 'تعذر تأكيد الرفع على Hyperserve');
-      }
-
-      const videoUrl = data.video_url || `https://cdn.hyperserve.io/${videoId}/1080.mp4`;
-      const posterUrl = data.poster_url || `https://cdn.hyperserve.io/${videoId}/poster.jpg`;
-
-      return res.status(200).json({
-        success: true,
-        video_url: videoUrl,
-        poster_url: posterUrl,
-        public_id: videoId
-      });
-    } catch (err) {
-      console.error('Hyperserve complete upload error:', err);
-      return res.status(502).json({ error: 'فشل معالجة الفيديو في Hyperserve: ' + err.message });
-    }
+    return res.status(200).json({
+      success: true,
+      video_url: videoUrl,
+      poster_url: posterUrl,
+      public_id: videoId
+    });
   }
 
   return res.status(400).json({ error: 'إجراء غير معروف' });

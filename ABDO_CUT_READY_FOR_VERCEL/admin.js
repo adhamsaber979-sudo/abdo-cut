@@ -242,7 +242,7 @@ async function loadStats() {
     $('#hsMeter').style.width = hsPct + '%';
     if (hs.isLimitReached) {
       $('#hsMeter').classList.add('full');
-      $('#hsBadge').textContent = 'ممتلئ (10/10)';
+      $('#hsBadge').textContent = 'ممتلئ (15/15)';
       $('#hsBadge').className = 'server-badge limit';
     } else {
       $('#hsMeter').classList.remove('full');
@@ -259,7 +259,7 @@ async function loadStats() {
     $('#cldMeter').style.width = cldPct + '%';
     if (cld.isLimitReached) {
       $('#cldMeter').classList.add('full');
-      $('#cldBadge').textContent = 'ممتلئ (10/10)';
+      $('#cldBadge').textContent = 'ممتلئ (15/15)';
       $('#cldBadge').className = 'server-badge limit';
     } else {
       $('#cldMeter').classList.remove('full');
@@ -269,7 +269,7 @@ async function loadStats() {
     if (cld.storage) $('#cldStorage').textContent = cld.storage;
     if (cld.bandwidth) $('#cldBandwidth').textContent = cld.bandwidth;
 
-    // Update upload select options based on 10 videos limit
+    // Update upload select options based on 15 videos limit
     updateServerDropdowns(hs.isLimitReached, cld.isLimitReached);
 
     // Limit warning banner
@@ -277,15 +277,15 @@ async function loadStats() {
     const alertText = $('#limitAlertText');
     if (hs.isLimitReached && cld.isLimitReached) {
       alertBox.hidden = false;
-      alertText.textContent = 'وصل كلا السيرفرين (سيرفر 1 وسيرفر 2) للحد الأقصى (10 فيديوهات لكل سيرفر). يرجى حذف فيديوهات غير مستخدمة من القائمة بالأسفل لإتاحة الرفع مجدداً.';
+      alertText.textContent = 'وصل كلا السيرفرين (سيرفر 1 وسيرفر 2) للحد الأقصى (15 فيديو لكل سيرفر). يرجى حذف فيديوهات غير مستخدمة من القائمة بالأسفل لإتاحة الرفع مجدداً.';
       $('#uploadBtn').disabled = true;
     } else if (hs.isLimitReached) {
       alertBox.hidden = false;
-      alertText.textContent = 'وصل سيرفر 1 للحد الأقصى التنظيمي (10 فيديوهات). تم إيقاف الرفع عليه مؤقتاً وتوجيه الرفع لسيرفر 2.';
+      alertText.textContent = 'وصل سيرفر 1 للحد الأقصى التنظيمي (15 فيديو). تم إيقاف الرفع عليه مؤقتاً وتوجيه الرفع لسيرفر 2.';
       $('#uploadBtn').disabled = false;
     } else if (cld.isLimitReached) {
       alertBox.hidden = false;
-      alertText.textContent = 'وصل سيرفر 2 للحد الأقصى التنظيمي (10 فيديوهات). تم إيقاف الرفع عليه مؤقتاً وتوجيه الرفع لسيرفر 1.';
+      alertText.textContent = 'وصل سيرفر 2 للحد الأقصى التنظيمي (15 فيديو). تم إيقاف الرفع عليه مؤقتاً وتوجيه الرفع لسيرفر 1.';
       $('#uploadBtn').disabled = false;
     } else {
       alertBox.hidden = true;
@@ -306,11 +306,11 @@ function updateServerDropdowns(hsFull, cldFull) {
 
     if (optHs) {
       optHs.disabled = hsFull;
-      optHs.textContent = hsFull ? 'سيرفر 1 (ممتلئ - 10/10)' : 'سيرفر 1';
+      optHs.textContent = hsFull ? 'سيرفر 1 (ممتلئ - 15/15)' : 'سيرفر 1';
     }
     if (optCld) {
       optCld.disabled = cldFull;
-      optCld.textContent = cldFull ? 'سيرفر 2 (ممتلئ - 10/10)' : 'سيرفر 2';
+      optCld.textContent = cldFull ? 'سيرفر 2 (ممتلئ - 15/15)' : 'سيرفر 2';
     }
 
     // Auto-switch selection if current selection is disabled
@@ -642,11 +642,11 @@ $('#uploadForm').addEventListener('submit', async (e) => {
     if (cat !== 'before_after') {
       const s = $('#serverSelect').value;
       if (s === 'hyperserve' && state.stats.hyperserve.isLimitReached) {
-        statusEl.textContent = 'سيرفر 1 وصل للحد الأقصى (10 فيديوهات). اختر سيرفر 2.';
+        statusEl.textContent = 'سيرفر 1 وصل للحد الأقصى (15 فيديو). اختر سيرفر 2.';
         return;
       }
       if (s === 'cloudinary' && state.stats.cloudinary.isLimitReached) {
-        statusEl.textContent = 'سيرفر 2 وصل للحد الأقصى (10 فيديوهات). اختر سيرفر 1.';
+        statusEl.textContent = 'سيرفر 2 وصل للحد الأقصى (15 فيديو). اختر سيرفر 1.';
         return;
       }
     }

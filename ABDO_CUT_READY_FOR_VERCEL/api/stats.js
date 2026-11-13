@@ -7,8 +7,8 @@ module.exports = async (req, res) => {
 
   try {
     const counts = await getServerCounts();
-    const limitHyperserve = parseInt(process.env.SERVER_LIMIT_HYPERSERVE || '10', 10);
-    const limitCloudinary = parseInt(process.env.SERVER_LIMIT_CLOUDINARY || '10', 10);
+    const limitHyperserve = parseInt(process.env.SERVER_LIMIT_HYPERSERVE || '15', 10);
+    const limitCloudinary = parseInt(process.env.SERVER_LIMIT_CLOUDINARY || '15', 10);
 
     const stats = {
       hyperserve: {

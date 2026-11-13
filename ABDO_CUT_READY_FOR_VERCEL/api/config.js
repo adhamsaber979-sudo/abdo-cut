@@ -13,8 +13,8 @@ module.exports = async (req, res) => {
     supabaseUrl,
     supabaseAnonKey,
     serverLimits: {
-      hyperserve: parseInt(process.env.SERVER_LIMIT_HYPERSERVE || '10', 10),
-      cloudinary: parseInt(process.env.SERVER_LIMIT_CLOUDINARY || '10', 10)
+      hyperserve: parseInt(process.env.SERVER_LIMIT_HYPERSERVE || '15', 10),
+      cloudinary: parseInt(process.env.SERVER_LIMIT_CLOUDINARY || '15', 10)
     },
     servers: ['hyperserve', 'cloudinary']
   });
