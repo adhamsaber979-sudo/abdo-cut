@@ -158,7 +158,7 @@ h2 { margin: 0; font-family: var(--display); font-weight: 700; font-size: clamp(
 .price span { font-size: 12px; color: var(--mute); }
 .price.pending { border: 1px dashed #a855f773; background: none; color: var(--mute); font-size: 13px; }
 
-.grid { display: grid; gap: 10px; }
+.grid { display: grid; gap: 12px; }
 .grid.r916 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid.r169 { grid-template-columns: minmax(0, 1fr); }
 .grid.r45, .grid.r11, .grid.trio { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -170,6 +170,10 @@ h2 { margin: 0; font-family: var(--display); font-weight: 700; font-size: clamp(
   .grid.r169, .grid.trio { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .big, .grid.r916 .big, .grid.r45 .big, .grid.r11 .big, .grid.r169 .big, .grid.trio .big { grid-column: span 2; grid-row: span 2; aspect-ratio: auto; height: 100%; }
   .grid.solo .big { grid-column: auto; grid-row: auto; aspect-ratio: var(--ratio); height: auto; }
+}
+@media (min-width: 1100px) {
+  .grid.r916 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
   /* tabs with few videos keep the first screen: the panel narrows so the big video still fits the height */
   .fit-trio { max-width: max(600px, calc((100dvh - 190px) * .844)); margin-inline: auto; }
   .fit-solo { max-width: max(340px, calc((100dvh - 190px) * .5625)); margin-inline: auto; }
@@ -815,11 +819,17 @@ var CATEGORIES = [
       }
       if (view.videoBefore && view.videoAfter) {
         if (en.isIntersecting && !dlg.open) {
-          view.videoBefore.play().catch(function () {});
-          view.videoAfter.play().catch(function () {});
+          if (view.startSyncPlay) { view.startSyncPlay(); }
+          else {
+            view.videoBefore.play().catch(function () {});
+            view.videoAfter.play().catch(function () {});
+          }
         } else {
-          view.videoBefore.pause();
-          view.videoAfter.pause();
+          if (view.pauseSync) { view.pauseSync(); }
+          else {
+            view.videoBefore.pause();
+            view.videoAfter.pause();
+          }
         }
       } else if (view.video) {
         if (en.isIntersecting && !dlg.open) { view.video.play().catch(function () {}); } else { view.video.pause(); }
@@ -904,6 +914,106 @@ var CATEGORIES = [
   var PLAY = '<span class="play" aria-hidden="true"><svg viewBox="0 0 12 12"><path d="M2.5 1.2v9.6a.6.6 0 0 0 .9.5l7.6-4.8a.6.6 0 0 0 0-1L3.4.7a.6.6 0 0 0-.9.5z"/></svg></span>';
   function canWatch(item) { return !item.src || !!item.full || !item.isCompare; }
 
+  /* Frame-by-frame lock engine for Before & After dual videos */
+  function initDualSync(view, vb, va) {
+    var isReady = false;
+    var isPlaying = false;
+    var syncTimer = null;
+
+    vb.preload = 'auto';
+    va.preload = 'auto';
+
+    function checkReady() {
+      if (vb.readyState >= 2 && va.readyState >= 2 && !isReady) {
+        isReady = true;
+        vb.currentTime = 0;
+        va.currentTime = 0;
+        if (view.visible && !dlg.open) {
+          startSyncPlay();
+        }
+      }
+    }
+
+    ['canplay', 'loadeddata', 'loadedmetadata'].forEach(function (ev) {
+      vb.addEventListener(ev, checkReady);
+      va.addEventListener(ev, checkReady);
+    });
+
+    function startSyncPlay() {
+      isPlaying = true;
+      if (Math.abs(va.currentTime - vb.currentTime) > 0.04) {
+        vb.currentTime = va.currentTime;
+      }
+      var pA = va.play();
+      var pB = vb.play();
+      if (pA && pA.catch) pA.catch(function () {});
+      if (pB && pB.catch) pB.catch(function () {});
+      startMicroSync();
+    }
+
+    function pauseSync() {
+      isPlaying = false;
+      if (syncTimer) { cancelAnimationFrame(syncTimer); syncTimer = null; }
+      vb.pause();
+      va.pause();
+    }
+
+    function startMicroSync() {
+      if (syncTimer) cancelAnimationFrame(syncTimer);
+      function step() {
+        if (!isPlaying || !view.visible) return;
+        var diff = va.currentTime - vb.currentTime;
+
+        // Hard desync (greater than 350ms, e.g. after loop reset or buffer stall)
+        if (Math.abs(diff) > 0.35) {
+          vb.currentTime = va.currentTime;
+          vb.playbackRate = 1.0;
+        }
+        // Micro drift (between 25ms and 350ms): dynamically adjust slave playbackRate
+        // Locks both videos frame-by-frame with zero decoder stutter
+        else if (diff > 0.025) {
+          vb.playbackRate = Math.min(1.15, 1.0 + diff * 0.9);
+        } else if (diff < -0.025) {
+          vb.playbackRate = Math.max(0.85, 1.0 + diff * 0.9);
+        } else {
+          vb.playbackRate = 1.0;
+        }
+
+        syncTimer = requestAnimationFrame(step);
+      }
+      syncTimer = requestAnimationFrame(step);
+    }
+
+    // Loop synchronization: when master restarts loop near 0
+    va.addEventListener('timeupdate', function () {
+      if (va.currentTime < 0.3 && vb.currentTime > 2.0) {
+        vb.currentTime = va.currentTime;
+        vb.playbackRate = 1.0;
+      }
+    });
+
+    // Buffer stall handling: pause both if either is waiting, resume when ready
+    va.addEventListener('waiting', function () { vb.pause(); });
+    vb.addEventListener('waiting', function () { va.pause(); });
+    va.addEventListener('playing', function () {
+      if (isPlaying && vb.paused) {
+        vb.currentTime = va.currentTime;
+        vb.play().catch(function () {});
+      }
+    });
+    vb.addEventListener('playing', function () {
+      if (isPlaying && va.paused) {
+        va.play().catch(function () {});
+      }
+    });
+
+    view.startSyncPlay = startSyncPlay;
+    view.pauseSync = pauseSync;
+
+    // Check if ready immediately
+    checkReady();
+  }
+
   function buildCompare(item, cat, parent, big, index) {
     var el = document.createElement('div'); el.className = 'compare' + (big ? ' big' : ''); el.style.setProperty('--i', index); el.style.setProperty('--ratio', item.ratio);
     var hasDual = !!(item.before_url && item.after_url);
@@ -926,6 +1036,7 @@ var CATEGORIES = [
       va.src = item.after_url;
       view.videoBefore = vb;
       view.videoAfter = va;
+      initDualSync(view, vb, va);
     }
 
     // Audio hover controller: sound plays smoothly whether moving right OR left, mutes when leaving
@@ -1045,6 +1156,7 @@ var CATEGORIES = [
   function restLoops() {
     loops.forEach(function (r) { r.video.pause(); });
     views.forEach(function (x) {
+      if (x.pauseSync) { x.pauseSync(); }
       if (x.video) { x.video.pause(); x.video.muted = true; }
       if (x.videoBefore) { x.videoBefore.pause(); x.videoBefore.muted = true; }
       if (x.videoAfter) { x.videoAfter.pause(); x.videoAfter.muted = true; }
@@ -1052,7 +1164,10 @@ var CATEGORIES = [
   }
   function wakeLoops() {
     loops.forEach(function (r) { if (r.on) { r.video.play().catch(function () {}); } });
-    views.forEach(function (x) { if (x.video && x.visible) { x.video.play().catch(function () {}); } });
+    views.forEach(function (x) {
+      if (x.startSyncPlay && x.visible) { x.startSyncPlay(); }
+      else if (x.video && x.visible) { x.video.play().catch(function () {}); }
+    });
   }
   function openTheater(list, i) { tList = list; showTheater(i); if (!dlg.open) { dlg.showModal(); document.documentElement.style.overflow = 'hidden'; restLoops(); } }
   function closeTheater() {
@@ -1154,12 +1269,6 @@ var CATEGORIES = [
         if (cat.big.plain) { buildTile(cat.big, cat, grid, 0, true); } else { buildCompare(cat.big, cat, grid, true, 0); }
       }
       cat.work.forEach(function (item, i) { buildTile(item, cat, grid, i + 1); });
-      if (cat.invite) {
-        var inv = document.createElement('a'); inv.className = 'invite'; inv.style.setProperty('--ratio', cat.ratio); inv.style.setProperty('--i', cat.work.length + 1); inv.href = orderLink(cat.orderText);
-        if (CONTACT.whatsapp) { inv.target = '_blank'; inv.rel = 'noopener'; }
-        var invTitle = document.createElement('b'); invTitle.textContent = cat.invite; var invBtn = document.createElement('span'); invBtn.className = 'pill-btn solid'; invBtn.textContent = cat.order;
-        inv.appendChild(invTitle); inv.appendChild(invBtn); grid.appendChild(inv);
-      }
 
       if (cat.pairs.length) {
         var block = document.createElement('div'); block.className = 'pairs-block';
@@ -1174,6 +1283,27 @@ var CATEGORIES = [
     requestAnimationFrame(function () { requestAnimationFrame(function () { tabsEl.classList.add('ready'); moveInd(current); }); });
   }
 
+  var DEFAULT_REELS = [
+    { title: 'ريل محتوى تعليمي', type: 'محتوى تعليمي', scene: 'speaker', demo: true },
+    { title: 'ريل لمنتج وبراند', type: 'إعلان منتج', scene: 'product', demo: true },
+    { title: 'ريل لايف ستايل وسفر', type: 'لايف ستايل', scene: 'city', demo: true },
+    { title: 'ريل كافيه ومطاعم', type: 'مطاعم وكافيهات', scene: 'steam', demo: true },
+    { title: 'ريل بودكاست وحوار', type: 'بودكاست', scene: 'road', demo: true },
+    { title: 'ريل جيم ولياقة بدنية', type: 'لياقة وبدنية', scene: 'sparks', demo: true },
+    { title: 'ريل عقارات وسياحة', type: 'عقارات', scene: 'sun', demo: true },
+    { title: 'ريل تطوير ذات وشخصي', type: 'تطوير ذات', scene: 'tunnel', demo: true }
+  ];
+
+  function ensureReelsGridPopulated() {
+    var reelsCat = CATEGORIES.find(function (c) { return c.id === 'reels'; });
+    if (!reelsCat) return;
+    if (!reelsCat.work) reelsCat.work = [];
+    var needed = 8 - reelsCat.work.length;
+    for (var i = 0; i < needed; i++) {
+      reelsCat.work.push(Object.assign({}, DEFAULT_REELS[i % DEFAULT_REELS.length]));
+    }
+  }
+
   async function loadMediaAndBuild() {
     try {
       var res = await fetch('/api/media', { cache: 'no-store' });
@@ -1181,7 +1311,7 @@ var CATEGORIES = [
         var rows = await res.json();
         if (Array.isArray(rows) && rows.length) {
           var catMap = {};
-          CATEGORIES.forEach(function (c) { catMap[c.id] = c; c.work = []; c.pairs = []; });
+          CATEGORIES.forEach(function (c) { catMap[c.id] = c; c.work = []; c.pairs = []; c.big = null; });
 
           var groups = {};
           rows.forEach(function (r) {
@@ -1190,12 +1320,21 @@ var CATEGORIES = [
             groups[k].push(r);
           });
 
-          Object.keys(groups).forEach(function (k) {
+          var sortedGroupKeys = Object.keys(groups).sort(function (a, b) {
+            var ordA = Math.min.apply(null, groups[a].map(function (x) { return x.sort_order ?? 0; }));
+            var ordB = Math.min.apply(null, groups[b].map(function (x) { return x.sort_order ?? 0; }));
+            return ordA - ordB;
+          });
+
+          sortedGroupKeys.forEach(function (k) {
             var items = groups[k];
             var first = items[0];
             var targetCat = catMap[first.category] || catMap['reels'];
 
-            if (items.length > 1 || first.role === 'before' || first.role === 'after' || first.category === 'before_after') {
+            var isPair = items.length > 1 || first.role === 'before' || first.role === 'after' || first.category === 'before_after';
+            var isFeatured = first.role === 'featured' || first.role === 'main' || first.category === 'intro';
+
+            if (isPair) {
               var beforeItem = items.find(function (x) { return x.role === 'before'; }) || items[0];
               var afterItem = items.find(function (x) { return x.role === 'after'; }) || items[1] || items[0];
 
@@ -1208,23 +1347,32 @@ var CATEGORIES = [
                 after_url: afterItem.video_url,
                 before_poster: beforeItem.poster_url,
                 after_poster: afterItem.poster_url,
-                ratio: afterItem.ratio || targetCat.ratio
+                ratio: afterItem.ratio || targetCat.ratio,
+                title: first.title || ''
               };
-              targetCat.pairs.push(pairObj);
-            } else if (first.category === 'intro') {
+
+              // Featured big spot or first pair featured at the top of the grid
+              if (isFeatured || (!catMap['reels'].big && (first.category === 'reels' || first.category === 'before_after'))) {
+                catMap['reels'].big = pairObj;
+              } else {
+                targetCat.pairs.push(pairObj);
+              }
+            } else if (isFeatured) {
               targetCat.big = {
                 plain: true,
                 src: first.video_url,
                 full: first.video_url,
                 poster: first.poster_url,
-                ratio: first.ratio || targetCat.ratio
+                ratio: first.ratio || targetCat.ratio,
+                title: first.title || ''
               };
             } else {
               targetCat.work.push({
                 src: first.video_url,
                 full: first.video_url,
                 poster: first.poster_url,
-                ratio: first.ratio || targetCat.ratio
+                ratio: first.ratio || targetCat.ratio,
+                title: first.title || ''
               });
             }
           });
@@ -1233,6 +1381,8 @@ var CATEGORIES = [
     } catch (e) {
       console.warn('Could not load live media:', e);
     }
+
+    ensureReelsGridPopulated();
     buildPanels();
   }
 

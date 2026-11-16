@@ -144,6 +144,39 @@ async function updateMediaOrder(category, orderedIds) {
   return true;
 }
 
+async function updateMediaPlacement(id, category, role) {
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    const { data: target } = await supabase.from('media').select('*').eq('id', id).single();
+    if (target && target.group_id) {
+      const updates = { category };
+      if (role) updates.role = role;
+      const { error } = await supabase.from('media').update(updates).eq('group_id', target.group_id);
+      if (error) throw new Error('فشل تحديث مكان الفيديو في Supabase: ' + error.message);
+    } else if (target) {
+      const updates = { category };
+      if (role) updates.role = role;
+      const { error } = await supabase.from('media').update(updates).eq('id', id);
+      if (error) throw new Error('فشل تحديث مكان الفيديو في Supabase: ' + error.message);
+    }
+    return true;
+  }
+
+  const db = readLocalDb();
+  const target = db.find(x => x.id === id);
+  if (target && target.group_id) {
+    db.filter(x => x.group_id === target.group_id).forEach(x => {
+      x.category = category;
+      if (role) x.role = role;
+    });
+  } else if (target) {
+    target.category = category;
+    if (role) target.role = role;
+  }
+  writeLocalDb(db);
+  return true;
+}
+
 async function deleteMedia(id) {
   const supabase = getSupabaseClient();
   let toDelete = [];
@@ -212,5 +245,6 @@ module.exports = {
   getServerCounts,
   saveMediaRecords,
   updateMediaOrder,
+  updateMediaPlacement,
   deleteMedia
 };

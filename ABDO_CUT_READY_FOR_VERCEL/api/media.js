@@ -3,6 +3,7 @@ const {
   getMediaRows,
   saveMediaRecords,
   updateMediaOrder,
+  updateMediaPlacement,
   deleteMedia
 } = require('./_utils/db');
 
@@ -50,7 +51,21 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'PATCH') {
-    const { category, orderedIds } = body;
+    const { action, id, category, role, orderedIds } = body;
+
+    if (action === 'update_placement') {
+      if (!id || !category) {
+        return res.status(400).json({ error: 'معرّف الفيديو والقسم مطلوبان' });
+      }
+      try {
+        await updateMediaPlacement(id, category, role);
+        return res.status(200).json({ success: true });
+      } catch (err) {
+        console.error('Error updating placement:', err);
+        return res.status(500).json({ error: err.message || 'فشل تحديث مكان الفيديو' });
+      }
+    }
+
     if (!category || !orderedIds || !Array.isArray(orderedIds)) {
       return res.status(400).json({ error: 'بيانات الترتيب غير مكتملة' });
     }

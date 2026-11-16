@@ -11,12 +11,12 @@ const state = {
 };
 
 const CATEGORIES = {
-  intro: 'مقدمة الموقع',
+  reels: 'شبكة الريلز',
   before_after: 'قبل وبعد',
-  reels: 'Reels',
-  promos: 'Promos',
-  ads: 'Ads',
-  motion: 'Motion'
+  promos: 'البروموهات',
+  ads: 'الإعلانات',
+  motion: 'الموشن جرافيك',
+  intro: 'مقدمة الموقع'
 };
 
 // Bootstrap application
@@ -135,17 +135,82 @@ $('#placement').addEventListener('change', () => {
   $('#positionWrap').hidden = $('#placement').value !== 'number';
 });
 
-// Category change handler (Single vs Before/After)
-$('#category').addEventListener('change', () => {
-  const isPair = $('#category').value === 'before_after';
-  $('#singleFile').hidden = isPair;
-  $('#pairFiles').hidden = !isPair;
-  $('#singleServerWrap').hidden = isPair;
+// Interactive Visual Site Layout Picker & Category Controller
+function setupLayoutPicker() {
+  const zones = $$('.layout-zone');
+  const tabs = $$('#mockupNavTabs .mock-tab');
+  const categorySelect = $('#category');
+  const bigModeWrap = $('#bigModeWrap');
+  const bigVideoType = $('#bigVideoType');
 
-  $('#videoFile').required = !isPair;
-  $('#beforeFile').required = isPair;
-  $('#afterFile').required = isPair;
-});
+  function updateActiveVisual(val) {
+    zones.forEach(z => {
+      const target = z.dataset.target;
+      const match = (target === val) || (target === 'reels_big' && val === 'reels_big');
+      z.classList.toggle('active', match);
+    });
+
+    tabs.forEach(t => {
+      const cat = t.dataset.cat;
+      const match = (cat === val) || (cat === 'reels_big' && (val === 'reels' || val === 'reels_big'));
+      t.classList.toggle('active', match);
+    });
+  }
+
+  zones.forEach(zone => {
+    zone.addEventListener('click', () => {
+      const targetVal = zone.dataset.target;
+      if (categorySelect.value !== targetVal) {
+        categorySelect.value = targetVal;
+        categorySelect.dispatchEvent(new Event('change'));
+      }
+      updateActiveVisual(targetVal);
+    });
+  });
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const cat = tab.dataset.cat;
+      if (categorySelect.value !== cat) {
+        categorySelect.value = cat;
+        categorySelect.dispatchEvent(new Event('change'));
+      }
+      updateActiveVisual(cat);
+    });
+  });
+
+  function syncFormVisibility() {
+    const val = categorySelect.value;
+    updateActiveVisual(val);
+
+    const isBig = val === 'reels_big';
+    if (bigModeWrap) bigModeWrap.hidden = !isBig;
+
+    const isCompareBig = isBig && bigVideoType && bigVideoType.value === 'compare';
+    const isPair = (val === 'before_after') || isCompareBig;
+
+    $('#singleFile').hidden = isPair;
+    $('#pairFiles').hidden = !isPair;
+    $('#singleServerWrap').hidden = isPair;
+
+    $('#videoFile').required = !isPair;
+    $('#beforeFile').required = isPair;
+    $('#afterFile').required = isPair;
+
+    if (isBig || val === 'reels') {
+      $('#ratio').value = '9 / 16';
+    } else if (val === 'promos') {
+      $('#ratio').value = '16 / 9';
+    }
+  }
+
+  categorySelect.addEventListener('change', syncFormVisibility);
+  if (bigVideoType) bigVideoType.addEventListener('change', syncFormVisibility);
+
+  syncFormVisibility();
+}
+
+setupLayoutPicker();
 
 // Display file names on select with instant visual feedback and video preview
 function setupFilePicker(inputId, boxId, iconId, nameId, hintId, wrapId, videoId, defaultTitle, defaultHint) {
@@ -401,10 +466,36 @@ function renderRows() {
       });
 
       const info = document.createElement('div');
+      const firstRow = card.rows[0];
+      const isFeatured = firstRow.role === 'featured' || firstRow.role === 'main' || firstRow.category === 'intro';
+      const isPair = card.rows.length > 1 || firstRow.role === 'before' || firstRow.role === 'after' || firstRow.category === 'before_after';
+
+      const titleRow = document.createElement('div');
+      titleRow.style.display = 'flex';
+      titleRow.style.alignItems = 'center';
+      titleRow.style.flexWrap = 'wrap';
+      titleRow.style.gap = '6px';
+
       const name = document.createElement('b');
-      name.textContent = category === 'before_after'
-        ? 'قبل وبعد · كارت مزدوج'
-        : (CATEGORIES[category] || category);
+      name.textContent = isPair ? 'مقارنة قبل وبعد (سلايدر فريم بفريم)' : (CATEGORIES[category] || category);
+
+      // Distinct Visual Placement Badge
+      const placementBadge = document.createElement('span');
+      if (isFeatured) {
+        placementBadge.className = 'badge-placement badge-placement-big';
+        placementBadge.innerHTML = '<i class="fa-solid fa-crown"></i> 🌟 فيديو مميز كبير (في البداية)';
+      } else if (category === 'before_after' || isPair) {
+        placementBadge.className = 'badge-placement badge-placement-beforeafter';
+        placementBadge.innerHTML = '<i class="fa-solid fa-arrows-left-right"></i> ⚖️ قسم قبل وبعد (تحت الريلز)';
+      } else if (category === 'reels') {
+        placementBadge.className = 'badge-placement badge-placement-reels';
+        placementBadge.innerHTML = `<i class="fa-solid fa-mobile-screen"></i> 📱 شبكة الريلز (كارت #${index + 1})`;
+      } else {
+        placementBadge.className = 'badge-placement badge-placement-other';
+        placementBadge.innerHTML = `<i class="fa-solid fa-film"></i> ${CATEGORIES[category] || category}`;
+      }
+
+      titleRow.append(name, placementBadge);
 
       // Server Badges
       const badgesWrap = document.createElement('span');
@@ -412,7 +503,7 @@ function renderRows() {
         const b = document.createElement('span');
         b.className = `badge-server badge-${r.server || 'cloudinary'}`;
         const sName = (r.server || 'cloudinary') === 'hyperserve' ? 'سيرفر 1' : 'سيرفر 2';
-        b.textContent = (category === 'before_after') ? `${r.role === 'before' ? 'قبل' : 'بعد'}: ${sName}` : sName;
+        b.textContent = isPair ? `${r.role === 'before' ? 'قبل' : 'بعد'}: ${sName}` : sName;
         badgesWrap.appendChild(b);
       });
 
@@ -420,9 +511,44 @@ function renderRows() {
       const dateStr = card.rows[0]?.created_at
         ? new Date(card.rows[0].created_at).toLocaleDateString('ar-EG')
         : 'اليوم';
-      small.textContent = `الترتيب: #${index + 1} · تاريخ الإضافة: ${dateStr}`;
+      small.textContent = `الترتيب بالقسم: #${index + 1} · تاريخ الإضافة: ${dateStr}`;
 
-      info.append(name, badgesWrap, small);
+      // Quick 1-Click Placement Change Buttons
+      const quickBtns = document.createElement('div');
+      quickBtns.style.display = 'flex';
+      quickBtns.style.gap = '6px';
+      quickBtns.style.marginTop = '6px';
+      quickBtns.style.flexWrap = 'wrap';
+
+      if (!isFeatured) {
+        const toBigBtn = document.createElement('button');
+        toBigBtn.type = 'button';
+        toBigBtn.className = 'quick-switch-btn featured';
+        toBigBtn.innerHTML = '<i class="fa-solid fa-crown"></i> 🌟 اجعله الفيديو الكبير في البداية';
+        toBigBtn.title = 'وضع هذا الفيديو كفيديو مميز كبير 2x2 في بداية شبكة الموقع';
+        toBigBtn.addEventListener('click', () => changeCardPlacement(firstRow.id, 'reels', 'featured'));
+        quickBtns.appendChild(toBigBtn);
+      } else {
+        const toReelsBtn = document.createElement('button');
+        toReelsBtn.type = 'button';
+        toReelsBtn.className = 'quick-switch-btn';
+        toReelsBtn.innerHTML = '<i class="fa-solid fa-mobile-screen"></i> 📱 انقله لشبكة الريلز ككارت عادي';
+        toReelsBtn.title = 'إلغاء تمييز الفيديو وإرجاعه ككارت ريل عادي في الشبكة';
+        toReelsBtn.addEventListener('click', () => changeCardPlacement(firstRow.id, 'reels', 'item'));
+        quickBtns.appendChild(toReelsBtn);
+      }
+
+      if (isPair && category !== 'before_after') {
+        const toPairsBtn = document.createElement('button');
+        toPairsBtn.type = 'button';
+        toPairsBtn.className = 'quick-switch-btn';
+        toPairsBtn.innerHTML = '<i class="fa-solid fa-arrows-left-right"></i> ⚖️ انقله لقسم قبل وبعد السفلي';
+        toPairsBtn.title = 'نقل هذا الكارت إلى قسم مقارنة قبل وبعد أسفل شبكة الريلز';
+        toPairsBtn.addEventListener('click', () => changeCardPlacement(firstRow.id, 'before_after', 'before'));
+        quickBtns.appendChild(toPairsBtn);
+      }
+
+      info.append(titleRow, badgesWrap, small, quickBtns);
 
       const actions = document.createElement('div');
       actions.className = 'row-actions';
@@ -458,6 +584,30 @@ function renderRows() {
   });
 
   $('#mediaList').replaceChildren(wrap);
+}
+
+async function changeCardPlacement(id, category, role) {
+  try {
+    const headers = authHeader();
+    const res = await fetch('/api/media', {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({
+        action: 'update_placement',
+        id,
+        category,
+        role
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'تعذر تحديث مكان الفيديو');
+    }
+    await loadStats();
+    await loadRows();
+  } catch (e) {
+    alert('حدث خطأ: ' + e.message);
+  }
 }
 
 async function moveCard(category, index, delta) {
@@ -630,7 +780,13 @@ async function uploadToProvider(file, server, category) {
 $('#uploadForm').addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  const cat = $('#category').value;
+  const catVal = $('#category').value;
+  const isBig = catVal === 'reels_big';
+  const isCompareBig = isBig && $('#bigVideoType') && $('#bigVideoType').value === 'compare';
+  const isPair = catVal === 'before_after' || isCompareBig;
+
+  const actualCat = isBig ? 'reels' : catVal;
+
   const placement = $('#placement').value;
   const ratio = $('#ratio').value;
   const btn = $('#uploadBtn');
@@ -639,7 +795,7 @@ $('#uploadForm').addEventListener('submit', async (e) => {
 
   // Verify server limits before uploading
   if (state.stats) {
-    if (cat !== 'before_after') {
+    if (!isPair) {
       const s = $('#serverSelect').value;
       if (s === 'hyperserve' && state.stats.hyperserve.isLimitReached) {
         statusEl.textContent = 'سيرفر 1 وصل للحد الأقصى (15 فيديو). اختر سيرفر 2.';
@@ -652,14 +808,13 @@ $('#uploadForm').addEventListener('submit', async (e) => {
     }
   }
 
-  const isPair = cat === 'before_after';
   const filesToUpload = isPair
     ? [
-        { file: $('#beforeFile').files[0], role: 'before', server: $('#serverBeforeSelect').value },
+        { file: $('#beforeFile').files[0], role: isBig ? 'featured' : 'before', server: $('#serverBeforeSelect').value },
         { file: $('#afterFile').files[0], role: 'after', server: $('#serverAfterSelect').value }
       ]
     : [
-        { file: $('#videoFile').files[0], role: cat === 'intro' ? 'main' : 'item', server: $('#serverSelect').value }
+        { file: $('#videoFile').files[0], role: isBig ? 'featured' : (actualCat === 'intro' ? 'main' : 'item'), server: $('#serverSelect').value }
       ];
 
   if (filesToUpload.some(item => !item.file)) {
@@ -681,16 +836,16 @@ $('#uploadForm').addEventListener('submit', async (e) => {
     for (let i = 0; i < filesToUpload.length; i++) {
       const item = filesToUpload[i];
       const sName = item.server === 'hyperserve' ? 'سيرفر 1' : 'سيرفر 2';
-      statusEl.textContent = `جاري رفع فيديو (${item.role === 'before' ? 'قبل' : item.role === 'after' ? 'بعد' : 'الرئيسي'}) إلى ${sName}…`;
+      statusEl.textContent = `جاري رفع فيديو (${item.role === 'before' ? 'قبل' : item.role === 'after' ? 'بعد' : (isBig ? 'المميز' : 'الرئيسي')}) إلى ${sName}…`;
 
-      const uploadRes = await uploadToProvider(item.file, item.server, cat);
+      const uploadRes = await uploadToProvider(item.file, item.server, actualCat);
       uploadedResults.push({
         id: crypto.randomUUID(),
         video_url: uploadRes.video_url,
         poster_url: uploadRes.poster_url,
         public_id: uploadRes.public_id,
         server: uploadRes.server,
-        category: cat,
+        category: actualCat,
         role: item.role,
         group_id: groupId,
         sort_order: 0,
@@ -706,7 +861,7 @@ $('#uploadForm').addEventListener('submit', async (e) => {
     // Compute order placement
     const existingCards = [];
     const grouped = {};
-    state.rows.filter(x => x.category === cat).forEach(x => {
+    state.rows.filter(x => x.category === actualCat).forEach(x => {
       const key = x.group_id || x.id;
       if (!grouped[key]) grouped[key] = { order: x.sort_order ?? 0, ids: [] };
       grouped[key].ids.push(x.id);
