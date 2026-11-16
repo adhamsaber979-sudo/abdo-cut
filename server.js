@@ -30,7 +30,8 @@ const apiHandlers = {
   '/api/media': require('./api/media'),
   '/api/sign-upload': require('./api/sign-upload'),
   '/api/upload-hyperserve': require('./api/upload-hyperserve'),
-  '/api/stats': require('./api/stats')
+  '/api/stats': require('./api/stats'),
+  '/api/settings': require('./api/settings')
 };
 
 function enhanceRes(res) {

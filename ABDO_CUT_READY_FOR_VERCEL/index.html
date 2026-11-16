@@ -461,30 +461,6 @@ dialog.closing .screen { transform: scale(.97); transition: transform .18s ease;
       <main>
         <div id="panels"></div>
 
-        <section class="journey" id="journey" aria-labelledby="journey-title">
-          <div class="journey-grid">
-            <div class="j-preview">
-              <canvas id="j-canvas"></canvas>
-              <span class="j-chip" id="j-chip"></span>
-              <span class="demo-tag">توضيح</span>
-            </div>
-            <div class="j-side">
-              <h2 id="journey-title">من الخام للنهائي</h2>
-              <p class="j-hint">حرّك المؤشر على التايم لاين، وشوف كل مرحلة بتضيف إيه.</p>
-              <div class="j-now"><b id="j-name"></b><p id="j-note"></p></div>
-              <div class="timeline" id="timeline">
-                <input type="range" id="j-range" min="0" max="100" value="0" aria-label="مرحلة المونتاج">
-                <div class="tl-head"><span class="tc" id="j-tc">00:00:00:00</span><span class="tl-count" id="j-count"></span></div>
-                <div class="tl-body" id="tl-body">
-                  <div class="tl-ruler"></div>
-                  <div id="tl-tracks"></div>
-                  <div class="playhead"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <section class="close-card" id="contact" aria-labelledby="contact-title">
           <div>
             <h2 id="contact-title">الشغل قدامك. لو عجبك، كلمني.</h2>
@@ -1283,28 +1259,29 @@ var CATEGORIES = [
     requestAnimationFrame(function () { requestAnimationFrame(function () { tabsEl.classList.add('ready'); moveInd(current); }); });
   }
 
-  var DEFAULT_REELS = [
-    { title: 'ريل محتوى تعليمي', type: 'محتوى تعليمي', scene: 'speaker', demo: true },
-    { title: 'ريل لمنتج وبراند', type: 'إعلان منتج', scene: 'product', demo: true },
-    { title: 'ريل لايف ستايل وسفر', type: 'لايف ستايل', scene: 'city', demo: true },
-    { title: 'ريل كافيه ومطاعم', type: 'مطاعم وكافيهات', scene: 'steam', demo: true },
-    { title: 'ريل بودكاست وحوار', type: 'بودكاست', scene: 'road', demo: true },
-    { title: 'ريل جيم ولياقة بدنية', type: 'لياقة وبدنية', scene: 'sparks', demo: true },
-    { title: 'ريل عقارات وسياحة', type: 'عقارات', scene: 'sun', demo: true },
-    { title: 'ريل تطوير ذات وشخصي', type: 'تطوير ذات', scene: 'tunnel', demo: true }
-  ];
-
-  function ensureReelsGridPopulated() {
-    var reelsCat = CATEGORIES.find(function (c) { return c.id === 'reels'; });
-    if (!reelsCat) return;
-    if (!reelsCat.work) reelsCat.work = [];
-    var needed = 8 - reelsCat.work.length;
-    for (var i = 0; i < needed; i++) {
-      reelsCat.work.push(Object.assign({}, DEFAULT_REELS[i % DEFAULT_REELS.length]));
-    }
-  }
-
   async function loadMediaAndBuild() {
+    // 1. Fetch live category pricing from backend settings
+    try {
+      var sRes = await fetch('/api/settings', { cache: 'no-store' });
+      if (sRes.ok) {
+        var sData = await sRes.json();
+        if (sData && sData.settings && sData.settings.pricing) {
+          var pricing = sData.settings.pricing;
+          CATEGORIES.forEach(function (cat) {
+            if (pricing[cat.id]) {
+              if (pricing[cat.id].price !== undefined) cat.price = pricing[cat.id].price;
+              if (pricing[cat.id].per !== undefined) cat.per = pricing[cat.id].per;
+              if (pricing[cat.id].order !== undefined) cat.order = pricing[cat.id].order;
+              if (pricing[cat.id].orderText !== undefined) cat.orderText = pricing[cat.id].orderText;
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load custom settings:', e);
+    }
+
+    // 2. Fetch live media from database
     try {
       var res = await fetch('/api/media', { cache: 'no-store' });
       if (res.ok) {
@@ -1382,7 +1359,7 @@ var CATEGORIES = [
       console.warn('Could not load live media:', e);
     }
 
-    ensureReelsGridPopulated();
+    // Only real uploaded videos will ever be rendered - zero dummy/synthetic cards!
     buildPanels();
   }
 
@@ -1402,7 +1379,10 @@ var CATEGORIES = [
   if (document.fonts && document.fonts.ready) { document.fonts.ready.then(function () { moveInd(current); }); }
 
   (function buildJourney() {
+    var jSection = document.getElementById('journey');
+    if (!jSection) return;
     var tracks = document.getElementById('tl-tracks'), body = document.getElementById('tl-body'), clips = [];
+    if (!tracks || !body) return;
     STAGES.forEach(function (st) {
       var track = document.createElement('div'); track.className = 'track';
       var clip = document.createElement('div'); clip.className = 'clip'; clip.style.setProperty('--start', st.start + '%'); clip.textContent = st.name;

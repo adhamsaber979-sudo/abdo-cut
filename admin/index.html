@@ -34,6 +34,7 @@
     <nav class="menu">
       <a class="menu-item active" href="#dashboard"><i class="fa-solid fa-house"></i><span>الرئيسية</span></a>
       <a class="menu-item" href="#upload"><i class="fa-solid fa-cloud-arrow-up"></i><span>إضافة فيديوهات</span></a>
+      <a class="menu-item" href="#pricing"><i class="fa-solid fa-tags"></i><span>أسعار الأقسام</span></a>
       <a class="menu-item" href="#library"><i class="fa-solid fa-photo-film"></i><span>الفيديوهات المنشورة</span></a>
       <a class="menu-item" href="#servers"><i class="fa-solid fa-server"></i><span>سيرفرات التخزين</span></a>
       <div class="divider"></div>
@@ -367,6 +368,116 @@
             <span class="status" id="uploadStatus"></span>
           </div>
           <div class="progress-track"><div id="progressBar"></div></div>
+        </form>
+      </section>
+
+      <!-- Category Pricing Management Card -->
+      <section class="glass-card pricing-card" id="pricing">
+        <div class="section-heading">
+          <div>
+            <small>PRICING MANAGEMENT</small>
+            <h2>تحديد أسعار الأقسام في الموقع</h2>
+          </div>
+          <span class="hint"><i class="fa-solid fa-tags"></i> تظهر الأسعار مباشرة في الهيدر الخاص بكل قسم وتحدث فورياً</span>
+        </div>
+
+        <form id="pricingForm">
+          <div class="pricing-settings-grid">
+            <!-- 1. Reels -->
+            <div class="pricing-box">
+              <div class="pricing-box-header">
+                <i class="fa-solid fa-film" style="color:#ef4444;"></i>
+                <b>قسم الريلز (Reels)</b>
+              </div>
+              <div class="pricing-fields">
+                <label>السعر المعروض:
+                  <input type="text" id="price_reels" placeholder="مثال: 800 جنيه" value="800 جنيه" required>
+                </label>
+                <label>الوحدة / للمدة:
+                  <input type="text" id="per_reels" placeholder="مثال: للريل" value="للريل" required>
+                </label>
+                <label class="full-width">نص زر الطلب:
+                  <input type="text" id="order_reels" placeholder="مثال: اطلب ريل" value="اطلب ريل">
+                </label>
+              </div>
+              <div class="pricing-live-preview">
+                المعاينة: <span class="badge-preview" id="prev_reels">800 جنيه للريل</span>
+              </div>
+            </div>
+
+            <!-- 2. Promos -->
+            <div class="pricing-box">
+              <div class="pricing-box-header">
+                <i class="fa-solid fa-clapperboard" style="color:#38bdf8;"></i>
+                <b>قسم البروموهات (Promos)</b>
+              </div>
+              <div class="pricing-fields">
+                <label>السعر المعروض:
+                  <input type="text" id="price_promos" placeholder="مثال: 1200 جنيه" value="1200 جنيه" required>
+                </label>
+                <label>الوحدة / للمدة:
+                  <input type="text" id="per_promos" placeholder="مثال: للبرومو" value="للبرومو" required>
+                </label>
+                <label class="full-width">نص زر الطلب:
+                  <input type="text" id="order_promos" placeholder="مثال: اطلب برومو" value="اطلب برومو">
+                </label>
+              </div>
+              <div class="pricing-live-preview">
+                المعاينة: <span class="badge-preview" id="prev_promos">1200 جنيه للبرومو</span>
+              </div>
+            </div>
+
+            <!-- 3. Ads -->
+            <div class="pricing-box">
+              <div class="pricing-box-header">
+                <i class="fa-solid fa-bullhorn" style="color:#fbbf24;"></i>
+                <b>قسم الإعلانات (Ads)</b>
+              </div>
+              <div class="pricing-fields">
+                <label>السعر المعروض:
+                  <input type="text" id="price_ads" placeholder="مثال: 1500 جنيه" value="1500 جنيه" required>
+                </label>
+                <label>الوحدة / للمدة:
+                  <input type="text" id="per_ads" placeholder="مثال: للإعلان" value="للإعلان" required>
+                </label>
+                <label class="full-width">نص زر الطلب:
+                  <input type="text" id="order_ads" placeholder="مثال: اطلب إعلان" value="اطلب إعلان">
+                </label>
+              </div>
+              <div class="pricing-live-preview">
+                المعاينة: <span class="badge-preview" id="prev_ads">1500 جنيه للإعلان</span>
+              </div>
+            </div>
+
+            <!-- 4. Motion -->
+            <div class="pricing-box">
+              <div class="pricing-box-header">
+                <i class="fa-solid fa-bezier-curve" style="color:#a78bfa;"></i>
+                <b>قسم الموشن (Motion)</b>
+              </div>
+              <div class="pricing-fields">
+                <label>السعر المعروض:
+                  <input type="text" id="price_motion" placeholder="مثال: 1000 جنيه" value="1000 جنيه" required>
+                </label>
+                <label>الوحدة / للمدة:
+                  <input type="text" id="per_motion" placeholder="مثال: للفيديو" value="للفيديو" required>
+                </label>
+                <label class="full-width">نص زر الطلب:
+                  <input type="text" id="order_motion" placeholder="مثال: اطلب فيديو موشن" value="اطلب فيديو موشن">
+                </label>
+              </div>
+              <div class="pricing-live-preview">
+                المعاينة: <span class="badge-preview" id="prev_motion">1000 جنيه للفيديو</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pricing-actions" style="margin-top:20px;display:flex;align-items:center;gap:16px;">
+            <button class="primary-btn" id="savePricesBtn" type="submit">
+              <i class="fa-solid fa-floppy-disk"></i> حفظ وتحديث أسعار الأقسام
+            </button>
+            <span class="status" id="pricingStatus"></span>
+          </div>
         </form>
       </section>
 

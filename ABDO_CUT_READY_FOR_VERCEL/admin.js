@@ -62,6 +62,7 @@ function showAdmin() {
   $('#connectionState').textContent = 'لوحة التحكم متصلة وجاهزة';
   loadStats();
   loadRows();
+  loadPricingSettings();
 }
 
 function authHeader() {
@@ -917,6 +918,107 @@ $('#uploadForm').addEventListener('submit', async (e) => {
     setTimeout(() => { progressBar.style.width = '0%'; }, 2000);
   }
 });
+
+// -------------------------------------------------------------
+// Category Pricing Management
+// -------------------------------------------------------------
+async function loadPricingSettings() {
+  try {
+    const res = await fetch('/api/settings');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.settings && data.settings.pricing) {
+      const p = data.settings.pricing;
+      ['reels', 'promos', 'ads', 'motion'].forEach(cat => {
+        if (p[cat]) {
+          if ($(`#price_${cat}`)) $(`#price_${cat}`).value = p[cat].price || '';
+          if ($(`#per_${cat}`)) $(`#per_${cat}`).value = p[cat].per || '';
+          if ($(`#order_${cat}`)) $(`#order_${cat}`).value = p[cat].order || '';
+          updatePricingPreview(cat);
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('Could not load pricing settings:', err);
+  }
+}
+
+function updatePricingPreview(cat) {
+  const pr = $(`#price_${cat}`) ? $(`#price_${cat}`).value.trim() : '';
+  const pe = $(`#per_${cat}`) ? $(`#per_${cat}`).value.trim() : '';
+  const prevEl = $(`#prev_${cat}`);
+  if (prevEl) {
+    prevEl.textContent = pr && pe ? `${pr} ${pe}` : (pr || pe || 'السعر غير محدد');
+  }
+}
+
+// Live preview listeners
+['reels', 'promos', 'ads', 'motion'].forEach(cat => {
+  const prEl = $(`#price_${cat}`);
+  const peEl = $(`#per_${cat}`);
+  if (prEl) prEl.addEventListener('input', () => updatePricingPreview(cat));
+  if (peEl) peEl.addEventListener('input', () => updatePricingPreview(cat));
+});
+
+// Pricing form submit
+if ($('#pricingForm')) {
+  $('#pricingForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = $('#savePricesBtn');
+    const statusEl = $('#pricingStatus');
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري الحفظ…';
+    statusEl.textContent = '';
+
+    const pricing = {
+      reels: {
+        price: $('#price_reels').value.trim(),
+        per: $('#per_reels').value.trim(),
+        order: $('#order_reels').value.trim(),
+        orderText: 'عايز أطلب ' + ($('#order_reels').value.trim() || 'ريل')
+      },
+      promos: {
+        price: $('#price_promos').value.trim(),
+        per: $('#per_promos').value.trim(),
+        order: $('#order_promos').value.trim(),
+        orderText: 'عايز أطلب ' + ($('#order_promos').value.trim() || 'برومو')
+      },
+      ads: {
+        price: $('#price_ads').value.trim(),
+        per: $('#per_ads').value.trim(),
+        order: $('#order_ads').value.trim(),
+        orderText: 'عايز أطلب ' + ($('#order_ads').value.trim() || 'إعلان')
+      },
+      motion: {
+        price: $('#price_motion').value.trim(),
+        per: $('#per_motion').value.trim(),
+        order: $('#order_motion').value.trim(),
+        orderText: 'عايز أطلب ' + ($('#order_motion').value.trim() || 'فيديو موشن')
+      }
+    };
+
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: authHeader(),
+        body: JSON.stringify({ pricing })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل حفظ الأسعار');
+
+      statusEl.textContent = 'تم حفظ أسعار الأقسام بنجاح! تم تحديث الموقع.';
+      statusEl.style.color = '#6ee7b7';
+      setTimeout(() => { statusEl.textContent = ''; }, 4000);
+    } catch (err) {
+      statusEl.textContent = 'خطأ: ' + err.message;
+      statusEl.style.color = '#fca5a5';
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> حفظ وتحديث أسعار الأقسام';
+    }
+  });
+}
 
 // Run boot
 boot().catch(e => {

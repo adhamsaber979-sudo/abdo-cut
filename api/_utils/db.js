@@ -3,6 +3,40 @@ const path = require('path');
 require('dotenv').config();
 
 const LOCAL_DB_PATH = path.join(__dirname, '../../data/media.json');
+const LOCAL_SETTINGS_PATH = path.join(__dirname, '../../data/settings.json');
+
+const DEFAULT_SETTINGS = {
+  pricing: {
+    reels: { price: '800 جنيه', per: 'للريل', order: 'اطلب ريل', orderText: 'عايز أطلب ريل' },
+    promos: { price: '1200 جنيه', per: 'للبرومو', order: 'اطلب برومو', orderText: 'عايز أطلب برومو' },
+    ads: { price: '1500 جنيه', per: 'للإعلان', order: 'اطلب إعلان', orderText: 'عايز أطلب إعلان' },
+    motion: { price: '1000 جنيه', per: 'للفيديو', order: 'اطلب فيديو موشن', orderText: 'عايز أطلب فيديو موشن' }
+  }
+};
+
+function readLocalSettings() {
+  try {
+    if (fs.existsSync(LOCAL_SETTINGS_PATH)) {
+      const content = fs.readFileSync(LOCAL_SETTINGS_PATH, 'utf-8');
+      if (content) {
+        const parsed = JSON.parse(content);
+        return { pricing: Object.assign({}, DEFAULT_SETTINGS.pricing, parsed.pricing || parsed) };
+      }
+    }
+  } catch (err) {
+    console.error('Error reading local settings:', err);
+  }
+  return DEFAULT_SETTINGS;
+}
+
+function writeLocalSettings(data) {
+  try {
+    fs.mkdirSync(path.dirname(LOCAL_SETTINGS_PATH), { recursive: true });
+    fs.writeFileSync(LOCAL_SETTINGS_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error writing local settings:', err);
+  }
+}
 
 function getSupabaseClient() {
   if (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY)) {
@@ -47,12 +81,15 @@ async function getMediaRows() {
     const { data, error } = await supabase
       .from('media')
       .select('*')
+      .neq('category', '_settings')
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false });
     if (error) throw new Error('خطأ في قاعدة بيانات Supabase: ' + error.message);
     return data || [];
   }
-  return readLocalDb().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  return readLocalDb()
+    .filter(r => r.category !== '_settings')
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 }
 
 async function getServerCounts() {
@@ -240,11 +277,85 @@ async function deleteMedia(id) {
   return toDelete;
 }
 
+async function getSiteSettings() {
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('media')
+        .select('*')
+        .eq('category', '_settings')
+        .eq('role', 'pricing')
+        .limit(1);
+      if (!error && data && data.length > 0 && data[0].video_url) {
+        const parsed = JSON.parse(data[0].video_url);
+        return { pricing: Object.assign({}, DEFAULT_SETTINGS.pricing, parsed.pricing || parsed) };
+      }
+    } catch (err) {
+      console.warn('Supabase getSiteSettings fallback:', err.message);
+    }
+  }
+  return readLocalSettings();
+}
+
+async function saveSiteSettings(newSettings) {
+  const supabase = getSupabaseClient();
+  const pricingData = newSettings.pricing || newSettings;
+  const fullSettings = { pricing: pricingData, updated_at: new Date().toISOString() };
+
+  // Local backup
+  writeLocalSettings(fullSettings);
+
+  if (supabase) {
+    try {
+      const { data: existing, error: fetchErr } = await supabase
+        .from('media')
+        .select('id')
+        .eq('category', '_settings')
+        .eq('role', 'pricing')
+        .limit(1);
+
+      if (fetchErr) throw fetchErr;
+
+      if (existing && existing.length > 0) {
+        const { error: updateErr } = await supabase
+          .from('media')
+          .update({
+            video_url: JSON.stringify(fullSettings),
+            server: 'settings',
+            sort_order: 999
+          })
+          .eq('id', existing[0].id);
+        if (updateErr) throw updateErr;
+      } else {
+        const { error: insertErr } = await supabase
+          .from('media')
+          .insert([{
+            category: '_settings',
+            role: 'pricing',
+            video_url: JSON.stringify(fullSettings),
+            server: 'settings',
+            sort_order: 999,
+            ratio: '1/1'
+          }]);
+        if (insertErr) throw insertErr;
+      }
+    } catch (err) {
+      console.error('Error saving settings to Supabase:', err);
+      throw new Error('فشل حفظ الإعدادات في Supabase: ' + err.message);
+    }
+  }
+
+  return fullSettings;
+}
+
 module.exports = {
   getMediaRows,
   getServerCounts,
   saveMediaRecords,
   updateMediaOrder,
   updateMediaPlacement,
-  deleteMedia
+  deleteMedia,
+  getSiteSettings,
+  saveSiteSettings
 };
