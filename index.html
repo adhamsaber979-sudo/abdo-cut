@@ -164,23 +164,47 @@ h2 { margin: 0; font-family: var(--display); font-weight: 700; font-size: clamp(
 .grid.r45, .grid.r11, .grid.trio { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid.solo { grid-template-columns: minmax(0, 1fr); }
 .grid.r916 .big, .grid.r45 .big, .grid.r11 .big, .grid.trio .big { grid-column: span 2; }
-.big { width: 100%; aspect-ratio: var(--ratio); }
+.big { width: 100%; aspect-ratio: var(--ratio, 9 / 16); min-height: min(78vh, 640px); }
+.compare.big { aspect-ratio: var(--ratio, 9 / 16); min-height: min(78vh, 640px); }
+
+/* When the grid has only the big featured card */
+.grid.has-only-big {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100% !important;
+  margin: 0 auto 24px !important;
+}
+.grid.has-only-big .big {
+  width: min(100%, 420px) !important;
+  max-width: 440px !important;
+  aspect-ratio: var(--ratio, 9 / 16) !important;
+  min-height: min(78vh, 660px) !important;
+  height: auto !important;
+}
+
 @media (min-width: 700px) {
-  .grid.r916, .grid.r45, .grid.r11 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .grid.r916:not(.has-only-big), .grid.r45, .grid.r11 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .grid.r169, .grid.trio { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .big, .grid.r916 .big, .grid.r45 .big, .grid.r11 .big, .grid.r169 .big, .grid.trio .big { grid-column: span 2; grid-row: span 2; aspect-ratio: auto; height: 100%; }
-  .grid.solo .big { grid-column: auto; grid-row: auto; aspect-ratio: var(--ratio); height: auto; }
+  .grid:not(.has-only-big) .big,
+  .grid.r916:not(.has-only-big) .big,
+  .grid.r45 .big, .grid.r11 .big, .grid.r169 .big, .grid.trio .big {
+    grid-column: span 2;
+    grid-row: span 2;
+    aspect-ratio: auto;
+    height: 100%;
+    min-height: min(78vh, 640px);
+  }
+  .grid.solo .big { grid-column: auto; grid-row: auto; aspect-ratio: var(--ratio); height: auto; min-height: 0; }
 }
+
 @media (min-width: 1100px) {
-  .grid.r916 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .grid.r916:not(.has-only-big) { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .fit-r45 { max-width: max(860px, calc((100dvh - 190px) * 1.6)); margin-inline: auto; }
 }
-  /* tabs with few videos keep the first screen: the panel narrows so the big video still fits the height */
-  .fit-trio { max-width: max(600px, calc((100dvh - 190px) * .844)); margin-inline: auto; }
-  .fit-solo { max-width: max(340px, calc((100dvh - 190px) * .5625)); margin-inline: auto; }
-}
-@media (min-width: 1100px) { .grid.r916 { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
-.panel-body { padding-bottom: 60px; }
-@media (min-width: 1100px) { .fit-r45 { max-width: max(860px, calc((100dvh - 190px) * 1.6)); margin-inline: auto; } }
+.fit-trio { max-width: max(600px, calc((100dvh - 190px) * .844)); margin-inline: auto; }
+.fit-solo { max-width: max(340px, calc((100dvh - 190px) * .5625)); margin-inline: auto; }
+.panel-body { padding-bottom: 60px; min-height: 70vh; }
 
 /* the card that closes a tab: it fills the grid's last place and turns watching into asking */
 .invite {
@@ -460,6 +484,30 @@ dialog.closing .screen { transform: scale(.97); transition: transform .18s ease;
 
       <main>
         <div id="panels"></div>
+
+        <section class="journey" id="journey" aria-labelledby="journey-title">
+          <div class="journey-grid">
+            <div class="j-preview">
+              <canvas id="j-canvas"></canvas>
+              <span class="j-chip" id="j-chip"></span>
+              <span class="demo-tag">توضيح</span>
+            </div>
+            <div class="j-side">
+              <h2 id="journey-title">من الخام للنهائي</h2>
+              <p class="j-hint">حرّك المؤشر على التايم لاين، وشوف كل مرحلة بتضيف إيه.</p>
+              <div class="j-now"><b id="j-name"></b><p id="j-note"></p></div>
+              <div class="timeline" id="timeline">
+                <input type="range" id="j-range" min="0" max="100" value="0" aria-label="مرحلة المونتاج">
+                <div class="tl-head"><span class="tc" id="j-tc">00:00:00:00</span><span class="tl-count" id="j-count"></span></div>
+                <div class="tl-body" id="tl-body">
+                  <div class="tl-ruler"></div>
+                  <div id="tl-tracks"></div>
+                  <div class="playhead"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section class="close-card" id="contact" aria-labelledby="contact-title">
           <div>
@@ -1209,6 +1257,7 @@ var CATEGORIES = [
     tabsEl.innerHTML = '<span class="tab-ind" id="tab-ind" aria-hidden="true"></span>';
     ind = document.getElementById('tab-ind');
     panelsEl.innerHTML = '';
+    current = null;
 
     CATEGORIES.forEach(function (cat) {
       cat.work = cat.work || [];
@@ -1220,7 +1269,7 @@ var CATEGORIES = [
       /* the player steps through finished videos; a real before/after is only an excerpt of one of them */
       cat.list = all.filter(function (x) { return x && !(x.isCompare && x.src); });
 
-      var tab = document.createElement('button'); tab.type = 'button'; tab.id = 'tab-' + cat.id; tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', 'panel-' + cat.id); tab.textContent = cat.tab || cat.name;
+      var tab = document.createElement('button'); tab.type = 'button'; tab.id = 'tab-' + cat.id; tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', 'panel-' + cat.id); tab.textContent = cat.name;
       tab.addEventListener('click', function () { selectTab(cat.id, true); });
       tabsEl.appendChild(tab); cat.tab = tab;
 
@@ -1242,6 +1291,9 @@ var CATEGORIES = [
       var grid = document.createElement('div'); grid.className = 'grid ' + cat.layout; panel.appendChild(grid);
       panelsEl.appendChild(panel); cat.panel = panel;
       if (cat.big) {
+        if (!cat.work || cat.work.length === 0) {
+          grid.classList.add('has-only-big');
+        }
         if (cat.big.plain) { buildTile(cat.big, cat, grid, 0, true); } else { buildCompare(cat.big, cat, grid, true, 0); }
       }
       cat.work.forEach(function (item, i) { buildTile(item, cat, grid, i + 1); });
@@ -1363,6 +1415,7 @@ var CATEGORIES = [
     buildPanels();
   }
 
+  buildPanels();
   loadMediaAndBuild();
 
   tabsEl.addEventListener('keydown', function (e) {
