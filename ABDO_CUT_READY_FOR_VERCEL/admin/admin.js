@@ -137,81 +137,35 @@ $('#placement').addEventListener('change', () => {
 });
 
 // Interactive Visual Site Layout Picker & Category Controller
-function setupLayoutPicker() {
-  const zones = $$('.layout-zone');
-  const tabs = $$('#mockupNavTabs .mock-tab');
+function setupCategoryForm() {
   const categorySelect = $('#category');
-  const bigModeWrap = $('#bigModeWrap');
-  const bigVideoType = $('#bigVideoType');
-
-  function updateActiveVisual(val) {
-    zones.forEach(z => {
-      const target = z.dataset.target;
-      const match = (target === val) || (target === 'reels_big' && val === 'reels_big');
-      z.classList.toggle('active', match);
-    });
-
-    tabs.forEach(t => {
-      const cat = t.dataset.cat;
-      const match = (cat === val) || (cat === 'reels_big' && (val === 'reels' || val === 'reels_big'));
-      t.classList.toggle('active', match);
-    });
-  }
-
-  zones.forEach(zone => {
-    zone.addEventListener('click', () => {
-      const targetVal = zone.dataset.target;
-      if (categorySelect.value !== targetVal) {
-        categorySelect.value = targetVal;
-        categorySelect.dispatchEvent(new Event('change'));
-      }
-      updateActiveVisual(targetVal);
-    });
-  });
-
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const cat = tab.dataset.cat;
-      if (categorySelect.value !== cat) {
-        categorySelect.value = cat;
-        categorySelect.dispatchEvent(new Event('change'));
-      }
-      updateActiveVisual(cat);
-    });
-  });
+  if (!categorySelect) return;
 
   function syncFormVisibility() {
     const val = categorySelect.value;
-    updateActiveVisual(val);
+    const isPair = (val === 'reels_top' || val === 'reels_bottom' || val === 'before_after');
 
-    const isBig = val === 'reels_big';
-    if (bigModeWrap) bigModeWrap.hidden = !isBig;
+    if ($('#singleFile')) $('#singleFile').hidden = isPair;
+    if ($('#pairFiles')) $('#pairFiles').hidden = !isPair;
+    if ($('#singleServerWrap')) $('#singleServerWrap').hidden = isPair;
+    if ($('#ratioWrap')) $('#ratioWrap').hidden = (val === 'reels_top' || val === 'reels' || val === 'reels_bottom');
 
-    const isCompareBig = isBig && bigVideoType && bigVideoType.value === 'compare';
-    const isPair = (val === 'before_after') || isCompareBig;
+    if ($('#videoFile')) $('#videoFile').required = !isPair;
+    if ($('#beforeFile')) $('#beforeFile').required = isPair;
+    if ($('#afterFile')) $('#afterFile').required = isPair;
 
-    $('#singleFile').hidden = isPair;
-    $('#pairFiles').hidden = !isPair;
-    $('#singleServerWrap').hidden = isPair;
-
-    $('#videoFile').required = !isPair;
-    $('#beforeFile').required = isPair;
-    $('#afterFile').required = isPair;
-
-    if (isBig || val === 'reels') {
-      $('#ratio').value = '9 / 16';
+    if (val === 'reels_top' || val === 'reels' || val === 'reels_bottom' || val === 'ads') {
+      if ($('#ratio')) $('#ratio').value = '9 / 16';
     } else if (val === 'promos') {
-      $('#ratio').value = '16 / 9';
+      if ($('#ratio')) $('#ratio').value = '16 / 9';
     }
   }
 
   categorySelect.addEventListener('change', syncFormVisibility);
-  if (bigVideoType) bigVideoType.addEventListener('change', syncFormVisibility);
-
   syncFormVisibility();
 }
 
-setupLayoutPicker();
+setupCategoryForm();
 
 // Display file names on select with instant visual feedback and video preview
 function setupFilePicker(inputId, boxId, iconId, nameId, hintId, wrapId, videoId, defaultTitle, defaultHint) {
@@ -482,15 +436,15 @@ function renderRows() {
 
       // Distinct Visual Placement Badge
       const placementBadge = document.createElement('span');
-      if (isFeatured) {
+      if (isFeatured || firstRow.category === 'reels_top') {
         placementBadge.className = 'badge-placement badge-placement-big';
-        placementBadge.innerHTML = '<i class="fa-solid fa-crown"></i> 🌟 فيديو مميز كبير (في البداية)';
+        placementBadge.innerHTML = '<i class="fa-solid fa-crown"></i> 🌟 ريلز: قبل وبعد في الأعلى';
       } else if (category === 'before_after' || isPair) {
         placementBadge.className = 'badge-placement badge-placement-beforeafter';
-        placementBadge.innerHTML = '<i class="fa-solid fa-arrows-left-right"></i> ⚖️ قسم قبل وبعد (تحت الريلز)';
+        placementBadge.innerHTML = '<i class="fa-solid fa-arrows-left-right"></i> ⚖️ ريلز: قبل وبعد في الأسفل';
       } else if (category === 'reels') {
         placementBadge.className = 'badge-placement badge-placement-reels';
-        placementBadge.innerHTML = `<i class="fa-solid fa-mobile-screen"></i> 📱 شبكة الريلز (كارت #${index + 1})`;
+        placementBadge.innerHTML = `<i class="fa-solid fa-mobile-screen"></i> 📱 ريلز: شبكة الريلز (كارت #${index + 1})`;
       } else {
         placementBadge.className = 'badge-placement badge-placement-other';
         placementBadge.innerHTML = `<i class="fa-solid fa-film"></i> ${CATEGORIES[category] || category}`;
@@ -521,32 +475,31 @@ function renderRows() {
       quickBtns.style.marginTop = '6px';
       quickBtns.style.flexWrap = 'wrap';
 
-      if (!isFeatured) {
-        const toBigBtn = document.createElement('button');
-        toBigBtn.type = 'button';
-        toBigBtn.className = 'quick-switch-btn featured';
-        toBigBtn.innerHTML = '<i class="fa-solid fa-crown"></i> 🌟 اجعله الفيديو الكبير في البداية';
-        toBigBtn.title = 'وضع هذا الفيديو كفيديو مميز كبير 2x2 في بداية شبكة الموقع';
-        toBigBtn.addEventListener('click', () => changeCardPlacement(firstRow.id, 'reels', 'featured'));
-        quickBtns.appendChild(toBigBtn);
-      } else {
-        const toReelsBtn = document.createElement('button');
-        toReelsBtn.type = 'button';
-        toReelsBtn.className = 'quick-switch-btn';
-        toReelsBtn.innerHTML = '<i class="fa-solid fa-mobile-screen"></i> 📱 انقله لشبكة الريلز ككارت عادي';
-        toReelsBtn.title = 'إلغاء تمييز الفيديو وإرجاعه ككارت ريل عادي في الشبكة';
-        toReelsBtn.addEventListener('click', () => changeCardPlacement(firstRow.id, 'reels', 'item'));
-        quickBtns.appendChild(toReelsBtn);
-      }
-
-      if (isPair && category !== 'before_after') {
-        const toPairsBtn = document.createElement('button');
-        toPairsBtn.type = 'button';
-        toPairsBtn.className = 'quick-switch-btn';
-        toPairsBtn.innerHTML = '<i class="fa-solid fa-arrows-left-right"></i> ⚖️ انقله لقسم قبل وبعد السفلي';
-        toPairsBtn.title = 'نقل هذا الكارت إلى قسم مقارنة قبل وبعد أسفل شبكة الريلز';
-        toPairsBtn.addEventListener('click', () => changeCardPlacement(firstRow.id, 'before_after', 'before'));
-        quickBtns.appendChild(toPairsBtn);
+      if (category === 'reels' || category === 'before_after' || category === 'reels_top') {
+        if (!isFeatured) {
+          const toTopBtn = document.createElement('button');
+          toTopBtn.type = 'button';
+          toTopBtn.className = 'quick-switch-btn featured';
+          toTopBtn.innerHTML = '<i class="fa-solid fa-crown"></i> 🌟 انقله لـ (قبل وبعد في الأعلى)';
+          toTopBtn.addEventListener('click', () => changeCardPlacement(firstRow.id, 'reels', 'featured'));
+          quickBtns.appendChild(toTopBtn);
+        }
+        if (isPair && category !== 'before_after') {
+          const toBottomBtn = document.createElement('button');
+          toBottomBtn.type = 'button';
+          toBottomBtn.className = 'quick-switch-btn';
+          toBottomBtn.innerHTML = '<i class="fa-solid fa-arrows-left-right"></i> ⚖️ انقله لـ (قبل وبعد في الأسفل)';
+          toBottomBtn.addEventListener('click', () => changeCardPlacement(firstRow.id, 'before_after', 'before'));
+          quickBtns.appendChild(toBottomBtn);
+        }
+        if (!isPair || isFeatured) {
+          const toGridBtn = document.createElement('button');
+          toGridBtn.type = 'button';
+          toGridBtn.className = 'quick-switch-btn';
+          toGridBtn.innerHTML = '<i class="fa-solid fa-mobile-screen"></i> 📱 انقله لـ (شبكة الريلز)';
+          toGridBtn.addEventListener('click', () => changeCardPlacement(firstRow.id, 'reels', 'item'));
+          quickBtns.appendChild(toGridBtn);
+        }
       }
 
       info.append(titleRow, badgesWrap, small, quickBtns);
@@ -782,14 +735,16 @@ $('#uploadForm').addEventListener('submit', async (e) => {
   e.preventDefault();
 
   const catVal = $('#category').value;
-  const isBig = catVal === 'reels_big';
-  const isCompareBig = isBig && $('#bigVideoType') && $('#bigVideoType').value === 'compare';
-  const isPair = catVal === 'before_after' || isCompareBig;
+  const isTop = catVal === 'reels_top';
+  const isBottom = catVal === 'reels_bottom' || catVal === 'before_after';
+  const isPair = isTop || isBottom;
 
-  const actualCat = isBig ? 'reels' : catVal;
+  let actualCat = catVal;
+  if (isTop) actualCat = 'reels';
+  if (isBottom) actualCat = 'before_after';
 
   const placement = $('#placement').value;
-  const ratio = $('#ratio').value;
+  const ratio = $('#ratio').value || '9 / 16';
   const btn = $('#uploadBtn');
   const statusEl = $('#uploadStatus');
   const progressBar = $('#progressBar');
@@ -811,11 +766,11 @@ $('#uploadForm').addEventListener('submit', async (e) => {
 
   const filesToUpload = isPair
     ? [
-        { file: $('#beforeFile').files[0], role: isBig ? 'featured' : 'before', server: $('#serverBeforeSelect').value },
+        { file: $('#beforeFile').files[0], role: isTop ? 'featured' : 'before', server: $('#serverBeforeSelect').value },
         { file: $('#afterFile').files[0], role: 'after', server: $('#serverAfterSelect').value }
       ]
     : [
-        { file: $('#videoFile').files[0], role: isBig ? 'featured' : (actualCat === 'intro' ? 'main' : 'item'), server: $('#serverSelect').value }
+        { file: $('#videoFile').files[0], role: 'item', server: $('#serverSelect').value }
       ];
 
   if (filesToUpload.some(item => !item.file)) {

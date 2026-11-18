@@ -166,127 +166,42 @@
         <div class="section-heading">
           <div>
             <small>VIDEO MANAGEMENT</small>
-            <h2>إضافة وتحديد مكان الفيديو</h2>
+            <h2>إضافة ونشر فيديو جديد</h2>
           </div>
-          <span class="hint"><i class="fa-solid fa-wand-magic-sparkles"></i> اختر المكان بالنقر على الخريطة أو من القائمة الكتابية</span>
-        </div>
-
-        <!-- Interactive Visual Site Layout Picker (خريطة الموقع التفاعلية) -->
-        <div class="visual-picker-container">
-          <div class="visual-picker-header">
-            <div>
-              <span class="vp-tag"><i class="fa-solid fa-layer-group"></i> معاينة شكل وتنسيق الموقع</span>
-              <h3 style="margin:4px 0 0;font-size:16px;">اختر مكان ظهور الفيديو بصرياً:</h3>
-            </div>
-            <small style="color:#c9c5da;">انقر على أي جزء من واجهة الموقع لتحديده مباشرة، أو اختر من القائمة الكتابية بالأسفل (لديك الخياران دائماً)</small>
-          </div>
-
-          <div class="site-mockup" id="siteMockup">
-            <!-- Mockup Header Bar -->
-            <div class="mockup-bar">
-              <div class="mockup-brand">
-                <span class="mock-dot red"></span><span class="mock-dot yellow"></span><span class="mock-dot green"></span>
-                <span class="mockup-title"><i class="fa-solid fa-crown" style="color:#fbbf24;"></i> ABDO CUT — واجهة المعاينة الحية</span>
-              </div>
-              <div class="mockup-nav" id="mockupNavTabs">
-                <button type="button" class="mock-tab active" data-cat="reels_big"><i class="fa-solid fa-film"></i> ريلز (Reels)</button>
-                <button type="button" class="mock-tab" data-cat="before_after"><i class="fa-solid fa-arrows-left-right"></i> قبل وبعد</button>
-                <button type="button" class="mock-tab" data-cat="promos"><i class="fa-solid fa-clapperboard"></i> بروموهات</button>
-                <button type="button" class="mock-tab" data-cat="ads"><i class="fa-solid fa-bullhorn"></i> إعلانات</button>
-                <button type="button" class="mock-tab" data-cat="motion"><i class="fa-solid fa-bezier-curve"></i> موشن</button>
-              </div>
-            </div>
-
-            <!-- Mockup Main Screen Wireframe -->
-            <div class="mockup-canvas">
-              <div class="mockup-grid-view">
-                <!-- Zone 1: Big Featured Video (2x2 on right) -->
-                <div class="layout-zone zone-featured active" id="zoneFeatured" data-target="reels_big" tabindex="0">
-                  <div class="zone-badge"><i class="fa-solid fa-star"></i> فيديو مميز كبير (مثل الصورة)</div>
-                  <div class="zone-inner">
-                    <i class="fa-solid fa-crown zone-icon"></i>
-                    <b>الفيديو الكبير المميز (2x2)</b>
-                    <span>يظهر كأول فيديو كبير على يمين الشاشة بحجم مضاعف</span>
-                    <div class="zone-action-indicator"><i class="fa-solid fa-circle-check"></i> الموضع المحدد حالياً</div>
-                  </div>
-                </div>
-
-                <!-- Zone 2: Reels Grid (4x2 on left) -->
-                <div class="layout-zone zone-reels" id="zoneReels" data-target="reels" tabindex="0">
-                  <div class="zone-badge"><i class="fa-solid fa-mobile-screen"></i> شبكة الريلز (Reels Grid)</div>
-                  <div class="zone-inner">
-                    <div class="mini-reels-preview">
-                      <div class="mini-reel"><span>#1</span></div>
-                      <div class="mini-reel"><span>#2</span></div>
-                      <div class="mini-reel"><span>#3</span></div>
-                      <div class="mini-reel"><span>#4</span></div>
-                      <div class="mini-reel"><span>#5</span></div>
-                      <div class="mini-reel"><span>#6</span></div>
-                      <div class="mini-reel"><span>#7</span></div>
-                      <div class="mini-reel"><span>#8</span></div>
-                    </div>
-                    <b>كروت شبكة الريلز (9:16)</b>
-                    <span>تظهر بجانب الفيديو الكبير في شبكة الكروت الرأسية</span>
-                    <div class="zone-action-indicator"><i class="fa-solid fa-circle-check"></i> الموضع المحدد حالياً</div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Zone 3: Before & After Section (Full width underneath) -->
-              <div class="layout-zone zone-beforeafter" id="zoneBeforeAfter" data-target="before_after" tabindex="0">
-                <div class="zone-badge"><i class="fa-solid fa-arrows-left-right"></i> قسم قبل وبعد (مقارنة تفاعلية)</div>
-                <div class="zone-inner-horizontal">
-                  <div class="mini-slider-preview">
-                    <span class="mini-side before">قبل (Raw)</span>
-                    <div class="mini-handle"><i class="fa-solid fa-arrows-left-right"></i></div>
-                    <span class="mini-side after">بعد (Grade)</span>
-                  </div>
-                  <div>
-                    <b>قسم مقارنة قبل وبعد المستقل (تحت شبكة الريلز)</b>
-                    <span>سلايدر مقارنة فريم بفريم بين نسختين متزامنتين</span>
-                  </div>
-                  <div class="zone-action-indicator"><i class="fa-solid fa-circle-check"></i> الموضع المحدد حالياً</div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <span class="hint"><i class="fa-solid fa-cloud-arrow-up"></i> اختر المكان المطلوب ونوع الفيديو بالأسفل</span>
         </div>
 
         <form id="uploadForm">
           <div class="form-grid">
-            <!-- 1. Category -->
-            <label>مكان ظهور الفيديو في الموقع (اختيار كتابي)
+            <!-- 1. Category & Section Placement -->
+            <label style="grid-column: span 2;">مكان ظهور الفيديو في الموقع
               <select id="category" required>
-                <option value="reels_big" selected>🌟 فيديو مميز كبير في البداية (مثل الصورة)</option>
-                <option value="reels">📱 شبكة الريلز (Reels Grid)</option>
-                <option value="before_after">⚖️ قسم قبل وبعد (فيديوهين مستقلين - سلايدر)</option>
-                <option value="promos">🎞️ بروموهات (Promos)</option>
-                <option value="ads">📢 إعلانات (Ads)</option>
-                <option value="motion">🎨 موشن جرافيك (Motion)</option>
-              </select>
-            </label>
-
-            <!-- Big Video Mode Selection (Single vs Compare) -->
-            <label id="bigModeWrap">نوع الفيديو الكبير
-              <select id="bigVideoType">
-                <option value="compare" selected>⚖️ كارت مقارنة قبل وبعد (مثل الصورة المرفقة)</option>
-                <option value="single">🎬 فيديو عادي مفرد</option>
+                <optgroup label="📱 قسم الريلز (Reels)">
+                  <option value="reels_top" selected>🌟 ريلز: قبل وبعد في الأعلى (فيديو مميز كبير)</option>
+                  <option value="reels">📱 ريلز: شبكة الريلز (كروت رأسية مفردة)</option>
+                  <option value="reels_bottom">⚖️ ريلز: قبل وبعد في الأسفل (سلايدر مقارنة)</option>
+                </optgroup>
+                <optgroup label="🎬 باقي الأقسام">
+                  <option value="promos">🎞️ بروموهات (Promos)</option>
+                  <option value="ads">📢 إعلانات (Ads)</option>
+                  <option value="motion">🎨 موشن جرافيك (Motion)</option>
+                </optgroup>
               </select>
             </label>
 
             <!-- 2. Server Selection (Single) -->
             <label id="singleServerWrap" hidden>اختيار سيرفر الرفع
               <select id="serverSelect" required>
-                <option value="cloudinary" selected>سيرفر 2 (سريع ومستقر ومفعل)</option>
-                <option value="hyperserve">سيرفر 1</option>
+                <option value="cloudinary" selected>سيرفر 2 (Cloudinary CDN)</option>
+                <option value="hyperserve">سيرفر 1 (Hyperserve)</option>
               </select>
             </label>
 
             <!-- 3. Placement -->
-            <label>مكان الكارت
+            <label>ترتيب الكارت
               <select id="placement">
                 <option value="first">أول كارت (في بداية القسم)</option>
-                <option value="last">آخر كارت (في نهاية القسم)</option>
+                <option value="last" selected>آخر كارت (في نهاية القسم)</option>
                 <option value="number">رقم محدد...</option>
               </select>
             </label>
@@ -297,7 +212,7 @@
             </label>
 
             <!-- 5. Aspect Ratio -->
-            <label>نسبة أبعاد الفيديو
+            <label id="ratioWrap" hidden>نسبة أبعاد الفيديو
               <select id="ratio">
                 <option value="9 / 16" selected>طولي 9:16 (مناسب لـ Reels)</option>
                 <option value="16 / 9">عرضي 16:9 (مناسب للبرومو والإعلانات)</option>

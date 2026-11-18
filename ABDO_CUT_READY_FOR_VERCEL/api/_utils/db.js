@@ -7,9 +7,9 @@ const LOCAL_SETTINGS_PATH = path.join(__dirname, '../../data/settings.json');
 
 const DEFAULT_SETTINGS = {
   pricing: {
-    reels: { price: '800 جنيه', per: 'للريل', order: 'اطلب ريل', orderText: 'عايز أطلب ريل' },
-    promos: { price: '1200 جنيه', per: 'للبرومو', order: 'اطلب برومو', orderText: 'عايز أطلب برومو' },
-    ads: { price: '1500 جنيه', per: 'للإعلان', order: 'اطلب إعلان', orderText: 'عايز أطلب إعلان' },
+    reels: { price: '200 جنيه', per: 'للريل', order: 'اطلب ريل', orderText: 'عايز أطلب ريل' },
+    promos: { price: '700 جنيه', per: 'للبرومو', order: 'اطلب برومو', orderText: 'عايز أطلب برومو' },
+    ads: { price: '900 جنيه', per: 'للإعلان', order: 'اطلب إعلان', orderText: 'عايز أطلب إعلان' },
     motion: { price: '1000 جنيه', per: 'للفيديو', order: 'اطلب فيديو موشن', orderText: 'عايز أطلب فيديو موشن' }
   }
 };

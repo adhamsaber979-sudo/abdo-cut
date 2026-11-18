@@ -560,15 +560,33 @@ var CONTACT = { whatsapp: '201515660484', phone: '01515660484' };
 var CATEGORIES = [
   {
     id: 'reels', name: 'ريلز', about: 'فيديوهات قصيرة بالطول لإنستجرام وتيك توك.',
-    price: '800 جنيه', per: 'للريل', order: 'اطلب ريل', orderText: 'عايز أطلب ريل', ratio: '9 / 16', layout: 'r916',
+    price: '200 جنيه', per: 'للريل', order: 'اطلب ريل', orderText: 'عايز أطلب ريل', ratio: '9 / 16', layout: 'r916',
     invite: 'الريل الجاي بتاعك؟',
-    big: null,
+    big: {
+      isCompare: true,
+      ratio: '9 / 16',
+      before_url: 'https://res.cloudinary.com/iunlofw7/video/upload/v1794606903/abdo-cut/before_after/nmsl3c9mpgvcxnk510zn.mp4',
+      after_url: 'https://res.cloudinary.com/iunlofw7/video/upload/v1794606913/abdo-cut/before_after/gc6tzktwk37iwhbs6pz6.mp4',
+      src: 'https://res.cloudinary.com/iunlofw7/video/upload/v1794606913/abdo-cut/before_after/gc6tzktwk37iwhbs6pz6.mp4',
+      full: 'https://res.cloudinary.com/iunlofw7/video/upload/v1794606913/abdo-cut/before_after/gc6tzktwk37iwhbs6pz6.mp4',
+      title: 'مقارنة قبل وبعد'
+    },
     work: [],
-    pairs: []
+    pairs: [
+      {
+        isCompare: true,
+        ratio: '9 / 16',
+        before_url: 'https://res.cloudinary.com/iunlofw7/video/upload/v1795027016/abdo-cut/before_after/euyezywcxktjzy3tw3sb.mp4',
+        after_url: 'https://res.cloudinary.com/iunlofw7/video/upload/v1795027022/abdo-cut/before_after/yikxwrothyrd0mppinjv.mp4',
+        src: 'https://res.cloudinary.com/iunlofw7/video/upload/v1795027022/abdo-cut/before_after/yikxwrothyrd0mppinjv.mp4',
+        full: 'https://res.cloudinary.com/iunlofw7/video/upload/v1795027022/abdo-cut/before_after/yikxwrothyrd0mppinjv.mp4',
+        title: 'مقارنة قبل وبعد'
+      }
+    ]
   },
   {
     id: 'promos', name: 'بروموهات', about: 'فيديوهات تعريفية لبراند أو حدث أو خدمة.',
-    price: '1200 جنيه', per: 'للبرومو', order: 'اطلب برومو', orderText: 'عايز أطلب برومو', ratio: '16 / 9', layout: 'r169',
+    price: '700 جنيه', per: 'للبرومو', order: 'اطلب برومو', orderText: 'عايز أطلب برومو', ratio: '16 / 9', layout: 'r169',
     invite: 'البرومو الجاي بتاعك؟',
     big: null,
     work: [],
@@ -576,7 +594,7 @@ var CATEGORIES = [
   },
   {
     id: 'ads', name: 'إعلانات', about: 'إعلانات مدفوعة هدفها توقّف اللي بيقلّب وتبيع.',
-    price: '1500 جنيه', per: 'للإعلان', order: 'اطلب إعلان', orderText: 'عايز أطلب إعلان', ratio: '9 / 16', layout: 'solo', fit: 'solo',
+    price: '900 جنيه', per: 'للإعلان', order: 'اطلب إعلان', orderText: 'عايز أطلب إعلان', ratio: '9 / 16', layout: 'solo', fit: 'solo',
     invite: 'الإعلان الجاي بتاعك؟',
     big: null,
     work: [],
@@ -1318,6 +1336,7 @@ var CATEGORIES = [
       if (sRes.ok) {
         var sData = await sRes.json();
         if (sData && sData.settings && sData.settings.pricing) {
+          try { localStorage.setItem('abdo_settings', JSON.stringify(sData.settings)); } catch (e) {}
           var pricing = sData.settings.pricing;
           CATEGORIES.forEach(function (cat) {
             if (pricing[cat.id]) {
@@ -1358,10 +1377,9 @@ var CATEGORIES = [
           sortedGroupKeys.forEach(function (k) {
             var items = groups[k];
             var first = items[0];
-            var targetCat = catMap[first.category] || catMap['reels'];
 
-            var isPair = items.length > 1 || first.role === 'before' || first.role === 'after' || first.category === 'before_after';
-            var isFeatured = first.role === 'featured' || first.role === 'main' || first.category === 'intro';
+            var isPair = items.length > 1 || first.role === 'before' || first.role === 'after' || first.category === 'before_after' || first.category === 'reels_bottom';
+            var isTop = first.category === 'reels_top' || (first.category === 'reels' && first.role === 'featured');
 
             if (isPair) {
               var beforeItem = items.find(function (x) { return x.role === 'before'; }) || items[0];
@@ -1376,17 +1394,22 @@ var CATEGORIES = [
                 after_url: afterItem.video_url,
                 before_poster: beforeItem.poster_url,
                 after_poster: afterItem.poster_url,
-                ratio: afterItem.ratio || targetCat.ratio,
+                ratio: afterItem.ratio || '9 / 16',
                 title: first.title || ''
               };
 
-              // Featured big spot or first pair featured at the top of the grid
-              if (isFeatured || (!catMap['reels'].big && (first.category === 'reels' || first.category === 'before_after'))) {
+              // If marked as reels_top OR if reels does not have a top big video yet and this is reels
+              if (isTop || (first.category === 'reels' && !catMap['reels'].big)) {
                 catMap['reels'].big = pairObj;
               } else {
+                // Otherwise goes to "قبل وبعد في الأسفل" (bottom comparison section)
+                var targetCat = (first.category === 'before_after' || first.category === 'reels_bottom' || first.category === 'reels')
+                  ? catMap['reels']
+                  : (catMap[first.category] || catMap['reels']);
                 targetCat.pairs.push(pairObj);
               }
-            } else if (isFeatured) {
+            } else if (isTop || first.role === 'featured') {
+              var targetCat = catMap[first.category] || catMap['reels'];
               targetCat.big = {
                 plain: true,
                 src: first.video_url,
@@ -1396,6 +1419,7 @@ var CATEGORIES = [
                 title: first.title || ''
               };
             } else {
+              var targetCat = catMap[first.category] || catMap['reels'];
               targetCat.work.push({
                 src: first.video_url,
                 full: first.video_url,
@@ -1414,6 +1438,22 @@ var CATEGORIES = [
     // Only real uploaded videos will ever be rendered - zero dummy/synthetic cards!
     buildPanels();
   }
+
+  try {
+    var cachedS = localStorage.getItem('abdo_settings');
+    if (cachedS) {
+      var parsedS = JSON.parse(cachedS);
+      if (parsedS && parsedS.pricing) {
+        CATEGORIES.forEach(function (cat) {
+          if (parsedS.pricing[cat.id]) {
+            if (parsedS.pricing[cat.id].price) cat.price = parsedS.pricing[cat.id].price;
+            if (parsedS.pricing[cat.id].per) cat.per = parsedS.pricing[cat.id].per;
+            if (parsedS.pricing[cat.id].order) cat.order = parsedS.pricing[cat.id].order;
+          }
+        });
+      }
+    }
+  } catch (e) {}
 
   buildPanels();
   loadMediaAndBuild();
