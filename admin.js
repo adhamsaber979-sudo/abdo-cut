@@ -148,17 +148,26 @@ function setupCategoryForm() {
     if ($('#singleFile')) $('#singleFile').hidden = isPair;
     if ($('#pairFiles')) $('#pairFiles').hidden = !isPair;
     if ($('#singleServerWrap')) $('#singleServerWrap').hidden = isPair;
-    if ($('#ratioWrap')) $('#ratioWrap').hidden = (val === 'reels_top' || val === 'reels' || val === 'reels_bottom');
+    if ($('#ratioWrap')) $('#ratioWrap').hidden = false;
 
     if ($('#videoFile')) $('#videoFile').required = !isPair;
     if ($('#beforeFile')) $('#beforeFile').required = isPair;
     if ($('#afterFile')) $('#afterFile').required = isPair;
 
-    if (val === 'reels_top' || val === 'reels' || val === 'reels_bottom' || val === 'ads') {
-      if ($('#ratio')) $('#ratio').value = '9 / 16';
-    } else if (val === 'promos') {
-      if ($('#ratio')) $('#ratio').value = '16 / 9';
+    const ratioEl = $('#ratio');
+    if (ratioEl && !ratioEl.dataset.userModified) {
+      if (val === 'promos') {
+        ratioEl.value = '16 / 9';
+      } else if (val === 'reels_top' || val === 'reels' || val === 'reels_bottom' || val === 'ads') {
+        ratioEl.value = '9 / 16';
+      }
     }
+  }
+
+  if ($('#ratio')) {
+    $('#ratio').addEventListener('change', () => {
+      $('#ratio').dataset.userModified = 'true';
+    });
   }
 
   categorySelect.addEventListener('change', syncFormVisibility);
@@ -167,7 +176,7 @@ function setupCategoryForm() {
 
 setupCategoryForm();
 
-// Display file names on select with instant visual feedback and video preview
+// Display file names on select with instant visual feedback, dimension detection and video preview
 function setupFilePicker(inputId, boxId, iconId, nameId, hintId, wrapId, videoId, defaultTitle, defaultHint) {
   const input = $(inputId);
   const box = $(boxId);
@@ -186,14 +195,43 @@ function setupFilePicker(inputId, boxId, iconId, nameId, hintId, wrapId, videoId
       if (icon) icon.className = 'fa-solid fa-circle-check';
       const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
       if (name) name.textContent = `✓ تم اختيار: ${file.name}`;
-      if (hint) hint.textContent = `الحجم: ${sizeMB} ميجابايت · جاهز للرفع الفوري`;
+      if (hint) hint.textContent = `الحجم: ${sizeMB} ميجابايت · جاري قراءة الدقة…`;
 
       if (video && wrap) {
         try {
           const blobUrl = URL.createObjectURL(file);
           video.src = blobUrl;
           wrap.style.display = 'block';
-        } catch (x) {}
+
+          // Detect video dimensions and aspect ratio
+          const probe = document.createElement('video');
+          probe.preload = 'metadata';
+          probe.src = blobUrl;
+          probe.onloadedmetadata = () => {
+            const w = probe.videoWidth;
+            const h = probe.videoHeight;
+            if (w && h) {
+              let rStr = `${w} / ${h}`;
+              const numeric = w / h;
+              if (Math.abs(numeric - 9 / 16) < 0.08) rStr = '9 / 16';
+              else if (Math.abs(numeric - 16 / 9) < 0.08) rStr = '16 / 9';
+              else if (Math.abs(numeric - 1.0) < 0.08) rStr = '1 / 1';
+              else if (Math.abs(numeric - 4 / 5) < 0.08) rStr = '4 / 5';
+
+              file._detectedRatio = rStr;
+              file._detectedWidth = w;
+              file._detectedHeight = h;
+              if (hint) hint.textContent = `الأبعاد: ${w}×${h} (${rStr}) · الحجم: ${sizeMB} ميجابايت · جاهز للرفع الفوري`;
+            } else {
+              if (hint) hint.textContent = `الحجم: ${sizeMB} ميجابايت · جاهز للرفع الفوري`;
+            }
+          };
+          probe.onerror = () => {
+            if (hint) hint.textContent = `الحجم: ${sizeMB} ميجابايت · جاهز للرفع الفوري`;
+          };
+        } catch (x) {
+          if (hint) hint.textContent = `الحجم: ${sizeMB} ميجابايت · جاهز للرفع الفوري`;
+        }
       }
     } else {
       if (box) box.classList.remove('has-file');
@@ -219,9 +257,9 @@ function resetFilePickers() {
   if ($('#beforeFileName')) $('#beforeFileName').textContent = 'فيديو قبل (Raw Footage)';
   if ($('#afterFileName')) $('#afterFileName').textContent = 'فيديو بعد (Final Edited)';
 
-  if ($('#singleFileHint')) $('#singleFileHint').textContent = 'صيغ مدعومة: MP4 / MOV / WebM';
-  if ($('#beforeFileHint')) $('#beforeFileHint').textContent = 'النسخة الخام قبل التعديل';
-  if ($('#afterFileHint')) $('#afterFileHint').textContent = 'النسخة النهائية بعد التعديل والتلوين';
+  if ($('#singleFileHint')) $('#singleFileHint').textContent = 'جميع الصيغ والأحجام مدعومة (MP4, MOV, WebM, MKV...) بأي دقة ومساحة';
+  if ($('#beforeFileHint')) $('#beforeFileHint').textContent = 'النسخة الخام قبل التعديل (أي صيغة أو مساحة)';
+  if ($('#afterFileHint')) $('#afterFileHint').textContent = 'النسخة النهائية بعد التعديل والتلوين (أي صيغة أو مساحة)';
 
   ['#singlePreview', '#beforePreview', '#afterPreview'].forEach(id => {
     const v = $(id);
@@ -233,9 +271,9 @@ function resetFilePickers() {
   });
 }
 
-setupFilePicker('#videoFile', '#singleFileBox', '#singleFileIcon', '#singleFileName', '#singleFileHint', '#singlePreviewWrap', '#singlePreview', 'اختر ملف الفيديو من جهازك', 'صيغ مدعومة: MP4 / MOV / WebM');
-setupFilePicker('#beforeFile', '#beforeFileBox', '#beforeFileIcon', '#beforeFileName', '#beforeFileHint', '#beforePreviewWrap', '#beforePreview', 'فيديو قبل (Raw Footage)', 'النسخة الخام قبل التعديل');
-setupFilePicker('#afterFile', '#afterFileBox', '#afterFileIcon', '#afterFileName', '#afterFileHint', '#afterPreviewWrap', '#afterPreview', 'فيديو بعد (Final Edited)', 'النسخة النهائية بعد التعديل والتلوين');
+setupFilePicker('#videoFile', '#singleFileBox', '#singleFileIcon', '#singleFileName', '#singleFileHint', '#singlePreviewWrap', '#singlePreview', 'اختر ملف الفيديو من جهازك', 'جميع الصيغ والأحجام مدعومة (MP4, MOV, WebM, MKV...) بأي دقة ومساحة');
+setupFilePicker('#beforeFile', '#beforeFileBox', '#beforeFileIcon', '#beforeFileName', '#beforeFileHint', '#beforePreviewWrap', '#beforePreview', 'فيديو قبل (Raw Footage)', 'النسخة الخام قبل التعديل (أي صيغة أو مساحة)');
+setupFilePicker('#afterFile', '#afterFileBox', '#afterFileIcon', '#afterFileName', '#afterFileHint', '#afterPreviewWrap', '#afterPreview', 'فيديو بعد (Final Edited)', 'النسخة النهائية بعد التعديل والتلوين (أي صيغة أو مساحة)');
 
 $('#refreshBtn').addEventListener('click', () => {
   loadStats();
@@ -637,7 +675,11 @@ async function uploadToProvider(file, server, category) {
     }
 
     const fd = new FormData();
-    fd.append('file', file);
+    let safeName = file.name || 'video.mp4';
+    if (!/\.(mp4|mov|webm|mkv|avi|m4v|3gp|flv)$/i.test(safeName)) {
+      safeName += '.mp4';
+    }
+    fd.append('file', file, safeName);
     fd.append('api_key', sigData.api_key);
     fd.append('timestamp', sigData.timestamp);
     fd.append('folder', sigData.folder);
@@ -653,15 +695,29 @@ async function uploadToProvider(file, server, category) {
       throw new Error(asset.error?.message || 'فشل رفع ملف الفيديو إلى سيرفر التخزين');
     }
 
-    const poster = asset.secure_url
-      .replace('/upload/', '/upload/so_0/')
-      .replace(/\.(mp4|mov|webm)(\?.*)?$/i, '.jpg');
+    let poster = asset.secure_url.replace('/upload/', '/upload/so_0/');
+    if (asset.format) {
+      poster = poster.replace(new RegExp(`\\.${asset.format}(\\?.*)?$`, 'i'), '.jpg');
+    } else {
+      poster = poster.replace(/\.[a-z0-9]+(\?.*)?$/i, '.jpg');
+    }
+
+    let detectedRatio = null;
+    if (asset.width && asset.height) {
+      const numeric = asset.width / asset.height;
+      if (Math.abs(numeric - 9 / 16) < 0.08) detectedRatio = '9 / 16';
+      else if (Math.abs(numeric - 16 / 9) < 0.08) detectedRatio = '16 / 9';
+      else if (Math.abs(numeric - 1.0) < 0.08) detectedRatio = '1 / 1';
+      else if (Math.abs(numeric - 4 / 5) < 0.08) detectedRatio = '4 / 5';
+      else detectedRatio = `${asset.width} / ${asset.height}`;
+    }
 
     return {
       video_url: asset.secure_url,
       poster_url: poster,
       public_id: asset.public_id,
-      server: assignedServer || 'cloudinary'
+      server: assignedServer || 'cloudinary',
+      detected_ratio: detectedRatio
     };
   }
 
@@ -738,13 +794,14 @@ $('#uploadForm').addEventListener('submit', async (e) => {
   const isTop = catVal === 'reels_top';
   const isBottom = catVal === 'reels_bottom' || catVal === 'before_after';
   const isPair = isTop || isBottom;
+  const isBig = isTop;
 
   let actualCat = catVal;
   if (isTop) actualCat = 'reels';
   if (isBottom) actualCat = 'before_after';
 
   const placement = $('#placement').value;
-  const ratio = $('#ratio').value || '9 / 16';
+  const userRatio = $('#ratio') ? $('#ratio').value : 'auto';
   const btn = $('#uploadBtn');
   const statusEl = $('#uploadStatus');
   const progressBar = $('#progressBar');
@@ -792,9 +849,21 @@ $('#uploadForm').addEventListener('submit', async (e) => {
     for (let i = 0; i < filesToUpload.length; i++) {
       const item = filesToUpload[i];
       const sName = item.server === 'hyperserve' ? 'سيرفر 1' : 'سيرفر 2';
-      statusEl.textContent = `جاري رفع فيديو (${item.role === 'before' ? 'قبل' : item.role === 'after' ? 'بعد' : (isBig ? 'المميز' : 'الرئيسي')}) إلى ${sName}…`;
+      let roleLabel = 'الرئيسي';
+      if (item.role === 'before') roleLabel = 'قبل';
+      else if (item.role === 'after') roleLabel = 'بعد';
+      else if (item.role === 'featured' || isBig) roleLabel = 'المميز في الأعلى';
+
+      statusEl.textContent = `جاري رفع فيديو (${roleLabel}) إلى ${sName}…`;
 
       const uploadRes = await uploadToProvider(item.file, item.server, actualCat);
+
+      // Determine final ratio
+      let finalRatio = userRatio;
+      if (finalRatio === 'auto' || !finalRatio) {
+        finalRatio = uploadRes.detected_ratio || (item.file && item.file._detectedRatio) || (actualCat === 'promos' ? '16 / 9' : '9 / 16');
+      }
+
       uploadedResults.push({
         id: crypto.randomUUID(),
         video_url: uploadRes.video_url,
@@ -805,7 +874,7 @@ $('#uploadForm').addEventListener('submit', async (e) => {
         role: item.role,
         group_id: groupId,
         sort_order: 0,
-        ratio
+        ratio: finalRatio
       });
 
       const pct = Math.round(((i + 1) / filesToUpload.length) * 75) + 10;

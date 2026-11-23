@@ -17,9 +17,9 @@ module.exports = async (req, res) => {
     return res.status(401).json({ error: authErr.message || 'غير مصرح لك' });
   }
 
-  // Check Cloudinary server limit (10 videos)
+  // Check Cloudinary server limit (15 videos)
   const counts = await getServerCounts();
-  const limit = parseInt(process.env.SERVER_LIMIT_CLOUDINARY || '10', 10);
+  const limit = parseInt(process.env.SERVER_LIMIT_CLOUDINARY || '15', 10);
   if (counts.cloudinary >= limit) {
     return res.status(400).json({
       error: `وصل سيرفر 2 للحد الأقصى التنظيمي (${limit} فيديوهات). يرجى استخدام سيرفر 1 أو حذف فيديوهات قديمة.`
