@@ -176,7 +176,7 @@ function setupCategoryForm() {
 
 setupCategoryForm();
 
-// Display file names on select with instant visual feedback, dimension detection and video preview
+// Display file names on select with instant visual feedback, dimension detection, duration & video preview
 function setupFilePicker(inputId, boxId, iconId, nameId, hintId, wrapId, videoId, defaultTitle, defaultHint) {
   const input = $(inputId);
   const box = $(boxId);
@@ -195,23 +195,41 @@ function setupFilePicker(inputId, boxId, iconId, nameId, hintId, wrapId, videoId
       if (icon) icon.className = 'fa-solid fa-circle-check';
       const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
       if (name) name.textContent = `✓ تم اختيار: ${file.name}`;
-      if (hint) hint.textContent = `الحجم: ${sizeMB} ميجابايت · جاري قراءة الدقة…`;
+      if (hint) hint.textContent = `الحجم: ${sizeMB} ميجابايت · جاري فحص ومعاينة الفيديو…`;
 
       if (video && wrap) {
         try {
-          const blobUrl = URL.createObjectURL(file);
+          // Explicitly slice into video/mp4 Blob if MIME type is missing or generic (e.g. Android WhatsApp media)
+          const videoBlob = (file.type && file.type.startsWith('video/'))
+            ? file
+            : file.slice(0, file.size, 'video/mp4');
+
+          const blobUrl = URL.createObjectURL(videoBlob);
+          video.muted = true;
+          video.defaultMuted = true;
+          video.playsInline = true;
+          video.setAttribute('playsinline', '');
+          video.setAttribute('webkit-playsinline', '');
+          video.preload = 'auto';
           video.src = blobUrl;
           wrap.style.display = 'block';
+          video.load();
 
-          // Detect video dimensions and aspect ratio
-          const probe = document.createElement('video');
-          probe.preload = 'metadata';
-          probe.src = blobUrl;
-          probe.onloadedmetadata = () => {
-            const w = probe.videoWidth;
-            const h = probe.videoHeight;
+          const handleMetadata = () => {
+            const dur = video.duration;
+            let durFormatted = '';
+            if (dur && isFinite(dur) && dur > 0) {
+              const mins = Math.floor(dur / 60);
+              const secs = Math.floor(dur % 60).toString().padStart(2, '0');
+              durFormatted = `${mins}:${secs}`;
+              file._detectedDuration = durFormatted;
+            }
+
+            const w = video.videoWidth;
+            const h = video.videoHeight;
+            let rStr = '9 / 16';
             if (w && h) {
-              let rStr = `${w} / ${h}`;
+              rStr = `${w} / ${h}`;
               const numeric = w / h;
               if (Math.abs(numeric - 9 / 16) < 0.08) rStr = '9 / 16';
               else if (Math.abs(numeric - 16 / 9) < 0.08) rStr = '16 / 9';
@@ -221,16 +239,34 @@ function setupFilePicker(inputId, boxId, iconId, nameId, hintId, wrapId, videoId
               file._detectedRatio = rStr;
               file._detectedWidth = w;
               file._detectedHeight = h;
-              if (hint) hint.textContent = `الأبعاد: ${w}×${h} (${rStr}) · الحجم: ${sizeMB} ميجابايت · جاهز للرفع الفوري`;
-            } else {
-              if (hint) hint.textContent = `الحجم: ${sizeMB} ميجابايت · جاهز للرفع الفوري`;
+            }
+
+            // Seek slightly forward so mobile browsers decode and render the first frame (prevents black screen!)
+            try {
+              if (video.currentTime === 0) {
+                video.currentTime = 0.05;
+              }
+            } catch (x) {}
+
+            const durationText = durFormatted ? `⏱️ المدة: ${durFormatted} دقيقة` : '⏱️ تم التعرف على الفيديو';
+            const dimText = (w && h) ? `📐 الأبعاد: ${w}×${h} (${rStr})` : '';
+            const sizeText = `💾 الحجم: ${sizeMB} ميجابايت`;
+            if (hint) {
+              hint.textContent = [durationText, dimText, sizeText].filter(Boolean).join(' · ') + ' · جاهز للرفع الفوري';
             }
           };
-          probe.onerror = () => {
-            if (hint) hint.textContent = `الحجم: ${sizeMB} ميجابايت · جاهز للرفع الفوري`;
+
+          video.onloadedmetadata = handleMetadata;
+          video.onloadeddata = () => {
+            try {
+              if (video.currentTime === 0) video.currentTime = 0.05;
+            } catch (x) {}
+          };
+          video.onerror = () => {
+            if (hint) hint.textContent = `💾 الحجم: ${sizeMB} ميجابايت · جاهز للرفع الفوري`;
           };
         } catch (x) {
-          if (hint) hint.textContent = `الحجم: ${sizeMB} ميجابايت · جاهز للرفع الفوري`;
+          if (hint) hint.textContent = `💾 الحجم: ${sizeMB} ميجابايت · جاهز للرفع الفوري`;
         }
       }
     } else {
@@ -659,8 +695,93 @@ async function removeRow(id) {
 // -------------------------------------------------------------
 // Video Upload Handlers (Cloudinary & Hyperserve)
 // -------------------------------------------------------------
-async function uploadToProvider(file, server, category) {
+async function uploadToProvider(file, server, category, roleLabel, onProgress) {
   const headers = authHeader();
+
+  function uploadViaXhr(sigData, assignedServer) {
+    return new Promise((resolve, reject) => {
+      // Normalize Blob MIME type so mobile decoders and storage APIs accept it cleanly
+      const uploadBlob = (file.type && file.type.startsWith('video/'))
+        ? file
+        : file.slice(0, file.size, 'video/mp4');
+
+      let safeName = file.name || 'video.mp4';
+      if (!/\.(mp4|mov|webm|mkv|avi|m4v|3gp|flv)$/i.test(safeName)) {
+        safeName += '.mp4';
+      }
+
+      const fd = new FormData();
+      fd.append('file', uploadBlob, safeName);
+      fd.append('api_key', sigData.api_key);
+      fd.append('timestamp', sigData.timestamp);
+      fd.append('folder', sigData.folder);
+      fd.append('signature', sigData.signature);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `https://api.cloudinary.com/v1_1/${sigData.cloud_name}/video/upload`);
+      xhr.timeout = 300000; // 5 minutes max for high-resolution video uploads
+
+      xhr.upload.onprogress = (evt) => {
+        if (evt.lengthComputable && onProgress) {
+          const pct = Math.round((evt.loaded / evt.total) * 100);
+          onProgress(pct, evt.loaded, evt.total);
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const asset = JSON.parse(xhr.responseText);
+            let poster = asset.secure_url.replace('/upload/', '/upload/so_0/');
+            if (asset.format) {
+              poster = poster.replace(new RegExp(`\\.${asset.format}(\\?.*)?$`, 'i'), '.jpg');
+            } else {
+              poster = poster.replace(/\.[a-z0-9]+(\?.*)?$/i, '.jpg');
+            }
+
+            let detectedRatio = null;
+            if (asset.width && asset.height) {
+              const numeric = asset.width / asset.height;
+              if (Math.abs(numeric - 9 / 16) < 0.08) detectedRatio = '9 / 16';
+              else if (Math.abs(numeric - 16 / 9) < 0.08) detectedRatio = '16 / 9';
+              else if (Math.abs(numeric - 1.0) < 0.08) detectedRatio = '1 / 1';
+              else if (Math.abs(numeric - 4 / 5) < 0.08) detectedRatio = '4 / 5';
+              else detectedRatio = `${asset.width} / ${asset.height}`;
+            }
+
+            resolve({
+              video_url: asset.secure_url,
+              poster_url: poster,
+              public_id: asset.public_id,
+              server: assignedServer || 'cloudinary',
+              detected_ratio: detectedRatio
+            });
+          } catch (e) {
+            reject(new Error('استجابة غير صحيحة من سيرفر التخزين'));
+          }
+        } else {
+          let msg = `خطأ في سيرفر التخزين (${xhr.status})`;
+          try {
+            const errJson = JSON.parse(xhr.responseText);
+            if (errJson.error && errJson.error.message) {
+              msg = errJson.error.message;
+            }
+          } catch (x) {}
+          reject(new Error(msg));
+        }
+      };
+
+      xhr.onerror = () => {
+        reject(new Error('انقطع الاتصال بسيرفر التخزين أثناء الرفع. تحقق من اتصال الإنترنت وحاول مجدداً.'));
+      };
+
+      xhr.ontimeout = () => {
+        reject(new Error('استغرق رفع الفيديو وقتاً طويلاً وانتهت المهلة. يرجى التحقق من سرعة الإنترنت.'));
+      };
+
+      xhr.send(fd);
+    });
+  }
 
   async function uploadCloudinaryPipeline(assignedServer) {
     const sigRes = await fetch('/api/sign-upload', {
@@ -669,56 +790,17 @@ async function uploadToProvider(file, server, category) {
       body: JSON.stringify({ category })
     });
 
-    const sigData = await sigRes.json();
     if (!sigRes.ok) {
-      throw new Error(sigData.error || 'فشل تجهيز عملية الرفع على سيرفر التخزين');
+      let errText = 'فشل تجهيز عملية الرفع على سيرفر التخزين';
+      try {
+        const errData = await sigRes.json();
+        errText = errData.error || errText;
+      } catch (x) {}
+      throw new Error(errText);
     }
 
-    const fd = new FormData();
-    let safeName = file.name || 'video.mp4';
-    if (!/\.(mp4|mov|webm|mkv|avi|m4v|3gp|flv)$/i.test(safeName)) {
-      safeName += '.mp4';
-    }
-    fd.append('file', file, safeName);
-    fd.append('api_key', sigData.api_key);
-    fd.append('timestamp', sigData.timestamp);
-    fd.append('folder', sigData.folder);
-    fd.append('signature', sigData.signature);
-
-    const upRes = await fetch(`https://api.cloudinary.com/v1_1/${sigData.cloud_name}/video/upload`, {
-      method: 'POST',
-      body: fd
-    });
-
-    const asset = await upRes.json();
-    if (!upRes.ok) {
-      throw new Error(asset.error?.message || 'فشل رفع ملف الفيديو إلى سيرفر التخزين');
-    }
-
-    let poster = asset.secure_url.replace('/upload/', '/upload/so_0/');
-    if (asset.format) {
-      poster = poster.replace(new RegExp(`\\.${asset.format}(\\?.*)?$`, 'i'), '.jpg');
-    } else {
-      poster = poster.replace(/\.[a-z0-9]+(\?.*)?$/i, '.jpg');
-    }
-
-    let detectedRatio = null;
-    if (asset.width && asset.height) {
-      const numeric = asset.width / asset.height;
-      if (Math.abs(numeric - 9 / 16) < 0.08) detectedRatio = '9 / 16';
-      else if (Math.abs(numeric - 16 / 9) < 0.08) detectedRatio = '16 / 9';
-      else if (Math.abs(numeric - 1.0) < 0.08) detectedRatio = '1 / 1';
-      else if (Math.abs(numeric - 4 / 5) < 0.08) detectedRatio = '4 / 5';
-      else detectedRatio = `${asset.width} / ${asset.height}`;
-    }
-
-    return {
-      video_url: asset.secure_url,
-      poster_url: poster,
-      public_id: asset.public_id,
-      server: assignedServer || 'cloudinary',
-      detected_ratio: detectedRatio
-    };
+    const sigData = await sigRes.json();
+    return await uploadViaXhr(sigData, assignedServer);
   }
 
   if (server === 'cloudinary') {
@@ -776,7 +858,7 @@ async function uploadToProvider(file, server, category) {
         server: 'hyperserve'
       };
     } catch (hsErr) {
-      console.warn('Hyperserve pipeline unavailable, falling back seamlessly:', hsErr);
+      console.warn('Hyperserve pipeline unavailable, falling back seamlessly to Cloudinary:', hsErr);
       return await uploadCloudinaryPipeline('hyperserve');
     }
   }
@@ -854,9 +936,20 @@ $('#uploadForm').addEventListener('submit', async (e) => {
       else if (item.role === 'after') roleLabel = 'بعد';
       else if (item.role === 'featured' || isBig) roleLabel = 'المميز في الأعلى';
 
-      statusEl.textContent = `جاري رفع فيديو (${roleLabel}) إلى ${sName}…`;
+      statusEl.textContent = `جاري تجهيز رفع فيديو (${roleLabel}) إلى ${sName}…`;
 
-      const uploadRes = await uploadToProvider(item.file, item.server, actualCat);
+      const onProgress = (filePct, loadedBytes, totalBytes) => {
+        const loadedMB = (loadedBytes / (1024 * 1024)).toFixed(1);
+        const totalMB = (totalBytes / (1024 * 1024)).toFixed(1);
+        const basePct = (i / filesToUpload.length) * 80 + 10;
+        const currentContrib = (filePct / 100) * (80 / filesToUpload.length);
+        const totalPct = Math.min(95, Math.round(basePct + currentContrib));
+
+        progressBar.style.width = `${totalPct}%`;
+        statusEl.textContent = `جاري رفع فيديو (${roleLabel}) إلى ${sName}: ${filePct}% (${loadedMB} / ${totalMB} ميجابايت)…`;
+      };
+
+      const uploadRes = await uploadToProvider(item.file, item.server, actualCat, roleLabel, onProgress);
 
       // Determine final ratio
       let finalRatio = userRatio;
@@ -877,7 +970,7 @@ $('#uploadForm').addEventListener('submit', async (e) => {
         ratio: finalRatio
       });
 
-      const pct = Math.round(((i + 1) / filesToUpload.length) * 75) + 10;
+      const pct = Math.round(((i + 1) / filesToUpload.length) * 80) + 10;
       progressBar.style.width = `${pct}%`;
     }
 
